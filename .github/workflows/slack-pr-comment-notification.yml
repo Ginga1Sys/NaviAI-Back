@@ -1,0 +1,159 @@
+name: Slack PR Comment Notification
+
+on:
+  push:
+    branches:
+      - '**'
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  discussion_comment:
+    types: [created]
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    # 対象イベントを明示（PR・Issue・コミット・ディスカッションのコメント）
+    if: >
+      github.event_name == 'issue_comment' ||
+      github.event_name == 'pull_request_review_comment' ||
+      github.event_name == 'pull_request_review' ||
+      github.event_name == 'push' ||
+      github.event_name == 'discussion_comment'
+
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL is not set; skipping." >&2
+            exit 0
+          fi
+
+          # イベントタイプに応じた情報を取得（PR/Issue/Commit/Discussion）
+          # NOTE: untrusted本文をGitHub式展開でシェルへ直接埋め込まない（クォート崩れ/注入の温床）
+          EVENT_JSON="${GITHUB_EVENT_PATH}"
+          EVENT_NAME="${GITHUB_EVENT_NAME}"
+
+          COMMENT_BODY=""
+          COMMENT_URL=""
+          COMMENTER=""
+          TARGET_URL=""
+          TITLE=""
+          NUMBER=""
+          COMMENT_TYPE=""
+
+          if [ "${EVENT_NAME}" = "issue_comment" ]; then
+            COMMENT_BODY="$(jq -r '.comment.body // ""' "$EVENT_JSON")"
+            COMMENT_URL="$(jq -r '.comment.html_url // ""' "$EVENT_JSON")"
+            COMMENTER="$(jq -r '.comment.user.login // ""' "$EVENT_JSON")"
+            TARGET_URL="$(jq -r '.issue.html_url // ""' "$EVENT_JSON")"
+            TITLE="$(jq -r '.issue.title // ""' "$EVENT_JSON")"
+            NUMBER="$(jq -r '.issue.number // ""' "$EVENT_JSON")"
+            COMMENT_TYPE="Issueコメント"
+          elif [ "${EVENT_NAME}" = "pull_request_review_comment" ]; then
+            COMMENT_BODY="$(jq -r '.comment.body // ""' "$EVENT_JSON")"
+            COMMENT_URL="$(jq -r '.comment.html_url // ""' "$EVENT_JSON")"
+            COMMENTER="$(jq -r '.comment.user.login // ""' "$EVENT_JSON")"
+            TARGET_URL="$(jq -r '.pull_request.html_url // ""' "$EVENT_JSON")"
+            TITLE="$(jq -r '.pull_request.title // ""' "$EVENT_JSON")"
+            NUMBER="$(jq -r '.pull_request.number // ""' "$EVENT_JSON")"
+            COMMENT_TYPE="レビューコメント"
+          elif [ "${EVENT_NAME}" = "pull_request_review" ]; then
+            COMMENT_BODY="$(jq -r '.review.body // ""' "$EVENT_JSON")"
+            COMMENT_URL="$(jq -r '.review.html_url // ""' "$EVENT_JSON")"
+            COMMENTER="$(jq -r '.review.user.login // ""' "$EVENT_JSON")"
+            TARGET_URL="$(jq -r '.pull_request.html_url // ""' "$EVENT_JSON")"
+            TITLE="$(jq -r '.pull_request.title // ""' "$EVENT_JSON")"
+            NUMBER="$(jq -r '.pull_request.number // ""' "$EVENT_JSON")"
+            COMMENT_TYPE="レビュー"
+          elif [ "${EVENT_NAME}" = "push" ]; then
+            if [ "$(jq -r '.deleted // false' "$EVENT_JSON")" = "true" ]; then
+              echo "push event is a branch deletion; skipping." >&2
+              exit 0
+            fi
+
+            COMMENT_BODY="$(jq -r '.head_commit.message // ""' "$EVENT_JSON")"
+            COMMENT_URL="$(jq -r '.compare // ""' "$EVENT_JSON")"
+            COMMENTER="$(jq -r '.pusher.name // ""' "$EVENT_JSON")"
+            REPO_HTML_URL="$(jq -r '.repository.html_url // ""' "$EVENT_JSON")"
+            BRANCH_NAME="${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}"
+            TARGET_URL="$REPO_HTML_URL/tree/$BRANCH_NAME"
+            TITLE="Push to $BRANCH_NAME"
+            NUMBER=""
+            COMMENT_TYPE="Push"
+          elif [ "${EVENT_NAME}" = "discussion_comment" ]; then
+            COMMENT_BODY="$(jq -r '.comment.body // ""' "$EVENT_JSON")"
+            COMMENT_URL="$(jq -r '.comment.html_url // ""' "$EVENT_JSON")"
+            COMMENTER="$(jq -r '.comment.user.login // ""' "$EVENT_JSON")"
+            TARGET_URL="$(jq -r '.discussion.html_url // ""' "$EVENT_JSON")"
+            TITLE="$(jq -r '.discussion.title // ""' "$EVENT_JSON")"
+            NUMBER="$(jq -r '.discussion.number // ""' "$EVENT_JSON")"
+            COMMENT_TYPE="ディスカッションコメント"
+          fi
+
+          # コメント本文プレビュー整形
+          if [ -z "${COMMENT_BODY}" ]; then
+            COMMENT_PREVIEW="(本文なし)"
+          elif [ ${#COMMENT_BODY} -gt 100 ]; then
+            COMMENT_PREVIEW="${COMMENT_BODY:0:100}..."
+          else
+            COMMENT_PREVIEW="${COMMENT_BODY}"
+          fi
+
+          # 表示用タイトル（番号があれば付与） — YAML内で複雑な展開を避ける
+          if [ -n "${NUMBER}" ]; then
+            DISPLAY_TITLE="#${NUMBER} ${TITLE}"
+          else
+            DISPLAY_TITLE="${TITLE}"
+          fi
+
+          # Slack通知のペイロードを作成（JSONエスケープをjqに任せる）
+          PAYLOAD=$(jq -n \
+            --arg comment_type "${COMMENT_TYPE}" \
+            --arg target_url "${TARGET_URL}" \
+            --arg display_title "${DISPLAY_TITLE}" \
+            --arg commenter "${COMMENTER}" \
+            --arg comment_preview "${COMMENT_PREVIEW}" \
+            --arg comment_url "${COMMENT_URL}" \
+            '{
+              text: "コメントが投稿されました",
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: ("💬 新しい" + $comment_type) }
+                },
+                {
+                  type: "section",
+                  fields: [
+                    { type: "mrkdwn", text: ("*対象:*\n<" + $target_url + "|" + $display_title + ">") },
+                    { type: "mrkdwn", text: ("*投稿者:*\n" + $commenter) }
+                  ]
+                },
+                {
+                  type: "section",
+                  text: { type: "mrkdwn", text: ("*コメント:*\n" + $comment_preview) }
+                },
+                {
+                  type: "actions",
+                  elements: [
+                    {
+                      type: "button",
+                      text: { type: "plain_text", text: "コメントを見る" },
+                      url: $comment_url
+                    }
+                  ]
+                }
+              ]
+            }')
+
+          # Slack Webhookに送信
+          curl --fail-with-body -sS -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"

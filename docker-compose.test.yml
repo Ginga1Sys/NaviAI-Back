@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  backend-app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.test
+    working_dir: /workspace
+    volumes:
+      - ./app:/workspace:cached
+    command: mvn -f pom.xml -DskipTests spring-boot:run
+    ports:
+      - "8080:8080"
+
+  backend-unit-tests:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.test
+    working_dir: /workspace
+    volumes:
+      - ./app:/workspace:cached
+    depends_on:
+      - backend-app
+    # run tests and exit
+    command: mvn -f pom.xml test
+
+  # e2e-tests:
+  #   build:
+  #     context: ./e2e
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     - backend-app
+  #   environment:
+  #     - BASE_URL=http://backend-app:8080
+  #   # run tests and exit
+  #   command: npm test

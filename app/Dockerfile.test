@@ -1,0 +1,15 @@
+FROM eclipse-temurin:17-jdk
+WORKDIR /workspace
+
+# Install Maven inside container (apt-based image)
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends maven ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
+
+# Copy project and run tests
+COPY . /workspace
+
+# Pre-build to download dependencies
+RUN mvn -B -f pom.xml -DskipTests package
+
+CMD ["mvn", "-f", "pom.xml", "test"]

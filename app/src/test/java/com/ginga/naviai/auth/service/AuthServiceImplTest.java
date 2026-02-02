@@ -4,11 +4,16 @@ import com.ginga.naviai.auth.dto.LoginRequest;
 import com.ginga.naviai.auth.dto.LoginResponse;
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
+import com.ginga.naviai.auth.dto.TokenResponse;
 import com.ginga.naviai.auth.entity.User;
+import com.ginga.naviai.auth.entity.RefreshToken;
 import com.ginga.naviai.auth.exception.AccountNotEnabledException;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
 import com.ginga.naviai.auth.exception.InvalidCredentialsException;
+import com.ginga.naviai.auth.exception.InvalidTokenException;
+import com.ginga.naviai.auth.exception.TokenExpiredException;
 import com.ginga.naviai.auth.repository.UserRepository;
+import com.ginga.naviai.auth.repository.RefreshTokenRepository;
 import com.ginga.naviai.mail.MailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -33,6 +39,9 @@ public class AuthServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private BCryptPasswordEncoder passwordEncoder;
 
     @Mock
@@ -46,6 +55,10 @@ public class AuthServiceImplTest {
 
     @BeforeEach
     void setup() {
+        // Set properties for token handling
+        ReflectionTestUtils.setField(authService, "tokenSecret", "test-secret-key-for-hashing-tokens-minimum-32-chars");
+        ReflectionTestUtils.setField(authService, "accessTokenExpiration", 3600L);
+        ReflectionTestUtils.setField(authService, "refreshTokenExpiration", 2592000L);
     }
 
     @Test
@@ -185,8 +198,8 @@ public class AuthServiceImplTest {
     }
 
     @Test
-    void lo存在しないユーザーの場合、InvalidCredentialsException が投げられることを検証する
-        // gin_invalidCredentials_throws() {
+    void login_invalidCredentials_throws() {
+        // 存在しないユーザーの場合、InvalidCredentialsException が投げられることを検証する
         // Arrange
         when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("unknown")).thenReturn(Optional.empty());
@@ -199,9 +212,9 @@ public class AuthServiceImplTest {
         assertThrows(InvalidCredentialsException.class, () -> authService.login(req));
     }
     
-    @Testパスワードが誤っている場合、InvalidCredentialsException が投げられることを検証する
-        // 
+    @Test
     void login_wrongPassword_throws() {
+        // パスワードが誤っている場合、InvalidCredentialsException が投げられることを検証する
         // Arrange
         User user = new User();
         user.setUsername("taro");
@@ -217,10 +230,10 @@ public class AuthServiceImplTest {
         // Act & Assert
         assertThrows(InvalidCredentialsException.class, () -> authService.login(req));
     }
-アカウントがまだ有効化されていない場合、AccountNotEnabledException が投げられることを検証する
-        // 
+
     @Test
     void login_notEnabled_throws() {
+        // アカウントがまだ有効化されていない場合、AccountNotEnabledException が投げられることを検証する
         // Arrange
         User user = new User();
         user.setUsername("taro");
@@ -237,4 +250,184 @@ public class AuthServiceImplTest {
         // Act & Assert
         assertThrows(AccountNotEnabledException.class, () -> authService.login(req));
     }
+
+    @Test
+    void refreshTokens_validToken_returnsNewTokens() {
+        // Arrange
+        String refreshTokenValue = "valid-refresh-token";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+        refreshToken.setJti("test-jti");
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        TokenResponse response = authService.refreshTokens(refreshTokenValue);
+
+        // Assert
+        assertNotNull(response);
+        assertNotNull(response.getAccessToken());
+        assertNotNull(response.getRefreshToken());
+        assertEquals(3600L, response.getExpiresIn());
+
+        // Verify old token was revoked
+        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
+        assertTrue(refreshToken.isRevoked());
+        assertNotNull(refreshToken.getRevokedAt());
+    }
+
+    @Test
+    void refreshTokens_invalidToken_throwsException() {
+        // Arrange
+        String invalidToken = "invalid-token";
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(InvalidTokenException.class, () -> authService.refreshTokens(invalidToken));
+    }
+
+    @Test
+    void refreshTokens_revokedToken_throwsException() {
+        // Arrange
+        String revokedTokenValue = "revoked-token";
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setRevoked(true);
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+
+        // Act & Assert
+        assertThrows(InvalidTokenException.class, () -> authService.refreshTokens(revokedTokenValue));
+    }
+
+    @Test
+    void refreshTokens_expiredToken_throwsException() {
+        // Arrange
+        String expiredTokenValue = "expired-token";
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().minusSeconds(3600)); // Expired 1 hour ago
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+
+        // Act & Assert
+        assertThrows(TokenExpiredException.class, () -> authService.refreshTokens(expiredTokenValue));
+    }
+
+    @Test
+    void refreshTokens_disabledUser_throwsException() {
+        // Arrange
+        String tokenValue = "valid-token";
+        User user = new User();
+        user.setId(1L);
+        user.setEnabled(false); // User is disabled
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+
+        // Act & Assert
+        assertThrows(AccountNotEnabledException.class, () -> authService.refreshTokens(tokenValue));
+    }
+
+    @Test
+    void refreshTokens_updatesLastUsedAt() {
+        // Arrange
+        String refreshTokenValue = "valid-refresh-token";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEnabled(true);
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+        refreshToken.setJti("test-jti");
+        refreshToken.setLastUsedAt(null); // Initially null
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        authService.refreshTokens(refreshTokenValue);
+
+        // Assert
+        assertNotNull(refreshToken.getLastUsedAt(), "lastUsedAt should be updated");
+    }
+
+    @Test
+    void refreshTokens_oldTokenCannotBeReusedAfterRotation() {
+        // Arrange
+        String oldRefreshTokenValue = "old-refresh-token";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEnabled(true);
+
+        RefreshToken oldRefreshToken = new RefreshToken();
+        oldRefreshToken.setId(1L);
+        oldRefreshToken.setUser(user);
+        oldRefreshToken.setRevoked(false);
+        oldRefreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+        oldRefreshToken.setJti("old-jti");
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(oldRefreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act - First use (should succeed)
+        TokenResponse firstResponse = authService.refreshTokens(oldRefreshTokenValue);
+        assertNotNull(firstResponse);
+
+        // Assert - Old token is now revoked
+        assertTrue(oldRefreshToken.isRevoked(), "Old token should be revoked after rotation");
+        assertNotNull(oldRefreshToken.getRevokedAt(), "Revoked timestamp should be set");
+        assertNotNull(oldRefreshToken.getReplacedBy(), "Should have reference to new token");
+
+        // Act & Assert - Second use should fail
+        assertThrows(InvalidTokenException.class, () -> authService.refreshTokens(oldRefreshTokenValue),
+            "Old token should not be reusable after rotation");
+    }
+
+    @Test
+    void login_generatesRefreshToken() {
+        // Arrange
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEmail("test@ginga.info");
+        user.setDisplayName("Test User");
+        user.setPasswordHash("hashed-password");
+        user.setEnabled(true);
+        user.setCreatedAt(Instant.now());
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password", "hashed-password")).thenReturn(true);
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("testuser");
+        req.setPassword("password");
+
+        // Act
+        LoginResponse response = authService.login(req);
+
+        // Assert
+        assertNotNull(response);
+        assertNotNull(response.getRefreshToken(), "Refresh token should be generated");
+        assertFalse(response.getRefreshToken().isEmpty(), "Refresh token should not be empty");
+        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
+    }
 }
+

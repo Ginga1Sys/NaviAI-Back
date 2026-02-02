@@ -4,11 +4,19 @@ public class LoginResponse {
     private UserResponse user;
     private String token;
     private long expiresIn;
+    private String refreshToken;
 
     public LoginResponse(UserResponse user, String token, long expiresIn) {
         this.user = user;
         this.token = token;
         this.expiresIn = expiresIn;
+    }
+
+    public LoginResponse(UserResponse user, String token, long expiresIn, String refreshToken) {
+        this.user = user;
+        this.token = token;
+        this.expiresIn = expiresIn;
+        this.refreshToken = refreshToken;
     }
 
     public UserResponse getUser() {
@@ -33,5 +41,13 @@ public class LoginResponse {
 
     public void setExpiresIn(long expiresIn) {
         this.expiresIn = expiresIn;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 }

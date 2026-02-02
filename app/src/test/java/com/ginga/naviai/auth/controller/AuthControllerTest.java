@@ -5,8 +5,11 @@ import com.ginga.naviai.auth.dto.LoginRequest;
 import com.ginga.naviai.auth.dto.LoginResponse;
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
+import com.ginga.naviai.auth.dto.RefreshRequest;
+import com.ginga.naviai.auth.dto.TokenResponse;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
 import com.ginga.naviai.auth.exception.InvalidCredentialsException;
+import com.ginga.naviai.auth.exception.InvalidTokenException;
 import com.ginga.naviai.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -195,5 +198,47 @@ public class AuthControllerTest {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/confirm")
                 .param("token", "t-already"))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void refresh_success_returns200() throws Exception {
+        // 有効なリフレッシュトークンで新しいトークンが返されることを検証する
+        TokenResponse tokenResponse = new TokenResponse("new-access-token", 3600, "new-refresh-token");
+        when(authService.refreshTokens("valid-refresh-token")).thenReturn(tokenResponse);
+
+        RefreshRequest req = new RefreshRequest("valid-refresh-token");
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accessToken").value("new-access-token"))
+            .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"))
+            .andExpect(jsonPath("$.expiresIn").value(3600));
+    }
+
+    @Test
+    void refresh_invalidToken_returns401() throws Exception {
+        // 無効なリフレッシュトークンで HTTP 401 が返されることを検証する
+        doThrow(new InvalidTokenException("Invalid refresh token"))
+            .when(authService).refreshTokens("invalid-token");
+
+        RefreshRequest req = new RefreshRequest("invalid-token");
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_missingToken_returns400() throws Exception {
+        // リフレッシュトークンが空の場合、バリデーションエラーで HTTP 400 が返されることを検証する
+        RefreshRequest req = new RefreshRequest("");
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isBadRequest());
     }
 }

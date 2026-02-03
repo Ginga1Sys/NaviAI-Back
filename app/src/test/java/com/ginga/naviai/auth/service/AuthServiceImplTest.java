@@ -253,6 +253,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_validToken_returnsNewTokens() {
+        // 有効なリフレッシュトークンで新しいアクセストークンとリフレッシュトークンが返され、旧トークンが無効化されることを検証する
         // Arrange
         String refreshTokenValue = "valid-refresh-token";
         User user = new User();
@@ -286,6 +287,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_invalidToken_throwsException() {
+        // 無効なリフレッシュトークン（DBに存在しない）で InvalidTokenException が投げられることを検証する
         // Arrange
         String invalidToken = "invalid-token";
         when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
@@ -296,6 +298,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_revokedToken_throwsException() {
+        // 既に無効化されたリフレッシュトークンで InvalidTokenException が投げられることを検証する
         // Arrange
         String revokedTokenValue = "revoked-token";
         RefreshToken refreshToken = new RefreshToken();
@@ -309,6 +312,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_expiredToken_throwsException() {
+        // 期限切れのリフレッシュトークンで TokenExpiredException が投げられることを検証する
         // Arrange
         String expiredTokenValue = "expired-token";
         RefreshToken refreshToken = new RefreshToken();
@@ -323,6 +327,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_disabledUser_throwsException() {
+        // リフレッシュトークンは有効だがユーザーが無効化されている場合、AccountNotEnabledException が投げられることを検証する
         // Arrange
         String tokenValue = "valid-token";
         User user = new User();
@@ -342,6 +347,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_updatesLastUsedAt() {
+        // リフレッシュトークン使用時に lastUsedAt フィールドが更新されることを検証する
         // Arrange
         String refreshTokenValue = "valid-refresh-token";
         User user = new User();
@@ -369,6 +375,7 @@ public class AuthServiceImplTest {
 
     @Test
     void refreshTokens_oldTokenCannotBeReusedAfterRotation() {
+        // トークンローテーション後、旧トークンが再利用できないことを検証する
         // Arrange
         String oldRefreshTokenValue = "old-refresh-token";
         User user = new User();
@@ -402,6 +409,7 @@ public class AuthServiceImplTest {
 
     @Test
     void login_generatesRefreshToken() {
+        // ログイン時にリフレッシュトークンが生成され、DBに保存されることを検証する
         // Arrange
         User user = new User();
         user.setId(1L);

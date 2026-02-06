@@ -7,6 +7,7 @@ import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
 import com.ginga.naviai.auth.dto.RefreshRequest;
 import com.ginga.naviai.auth.dto.TokenResponse;
+import com.ginga.naviai.auth.dto.LogoutRequest;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
 import com.ginga.naviai.auth.exception.InvalidCredentialsException;
 import com.ginga.naviai.auth.exception.InvalidTokenException;
@@ -23,9 +24,13 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.Optional;
 
 @WebMvcTest(AuthController.class)
 public class AuthControllerTest {
@@ -39,6 +44,8 @@ public class AuthControllerTest {
     private com.ginga.naviai.auth.service.ConfirmationTokenService confirmationTokenService;
     @MockBean
     private com.ginga.naviai.auth.repository.UserRepository userRepository;
+    @MockBean
+    private com.ginga.naviai.auth.service.TokenBlacklistService tokenBlacklistService;
 
     @Autowired
     private ObjectMapper mapper;
@@ -237,6 +244,75 @@ public class AuthControllerTest {
         RefreshRequest req = new RefreshRequest("");
 
         mockMvc.perform(post("/api/v1/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isBadRequest());
+    }
+
+    // ========== ログアウト関連のテスト ==========
+
+    @Test
+    void logout_success_returns200() throws Exception {
+        // ログアウトが正常に処理され HTTP 200 と成功メッセージが返されることを検証する
+        doNothing().when(authService).logout(eq("testuser"), any(Optional.class), any(Optional.class));
+
+        LogoutRequest req = new LogoutRequest("valid-refresh-token");
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .param("username", "testuser")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Logged out successfully"));
+
+        verify(authService, times(1)).logout(eq("testuser"), any(Optional.class), any(Optional.class));
+    }
+
+    @Test
+    void logout_withoutRefreshToken_returns200() throws Exception {
+        // リフレッシュトークンなしでもログアウトが成功し HTTP 200 が返されることを検証する
+        doNothing().when(authService).logout(eq("testuser"), any(Optional.class), any(Optional.class));
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .param("username", "testuser")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Logged out successfully"));
+    }
+
+    @Test
+    void logout_invalidToken_returns401() throws Exception {
+        // 無効なリフレッシュトークンの場合 HTTP 401 が返されることを検証する
+        doThrow(new InvalidTokenException("Token does not belong to the user"))
+            .when(authService).logout(eq("testuser"), any(Optional.class), any(Optional.class));
+
+        LogoutRequest req = new LogoutRequest("invalid-token");
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .param("username", "testuser")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logout_missingUsername_returns400() throws Exception {
+        // ユーザー名パラメータが欠落している場合 HTTP 400 が返されることを検証する
+        LogoutRequest req = new LogoutRequest("some-token");
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void logout_emptyUsername_returns400() throws Exception {
+        // ユーザー名が空文字の場合 HTTP 400 が返されることを検証する
+        LogoutRequest req = new LogoutRequest("some-token");
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                .param("username", "")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(req)))
             .andExpect(status().isBadRequest());

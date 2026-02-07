@@ -1,6 +1,7 @@
 package com.ginga.naviai.auth.filter;
 
 import com.ginga.naviai.auth.service.TokenBlacklistService;
+import com.ginga.naviai.auth.util.JwtTokenUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
 
@@ -20,6 +23,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class JwtAuthenticationFilterTest {
+
+    private static final String TOKEN_SECRET = "test-secret-key-for-hashing-tokens-minimum-32-chars";
 
     @Mock
     private TokenBlacklistService tokenBlacklistService;
@@ -32,6 +37,8 @@ public class JwtAuthenticationFilterTest {
     @BeforeEach
     void setup() {
         filter = new JwtAuthenticationFilter(tokenBlacklistService);
+        ReflectionTestUtils.setField(filter, "tokenSecret", TOKEN_SECRET);
+        SecurityContextHolder.clearContext();
     }
 
     // ========== ブラックリストチェックのテスト ==========
@@ -41,8 +48,8 @@ public class JwtAuthenticationFilterTest {
         // ブラックリストに登録された jti でリクエストした場合、401 が返されることを検証する
         // Arrange
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer some-access-token");
-        request.addHeader("X-Token-Jti", "blacklisted-jti");
+        String token = JwtTokenUtil.generateAccessToken("1", "blacklisted-jti", 3600L, TOKEN_SECRET);
+        request.addHeader("Authorization", "Bearer " + token);
         request.setServletPath("/api/v1/protected");
         
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -63,8 +70,8 @@ public class JwtAuthenticationFilterTest {
         // 有効な jti でリクエストした場合、フィルタチェーンが継続されることを検証する
         // Arrange
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer some-access-token");
-        request.addHeader("X-Token-Jti", "valid-jti");
+        String token = JwtTokenUtil.generateAccessToken("1", "valid-jti", 3600L, TOKEN_SECRET);
+        request.addHeader("Authorization", "Bearer " + token);
         request.setServletPath("/api/v1/protected");
         
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -76,6 +83,8 @@ public class JwtAuthenticationFilterTest {
 
         // Assert
         assertEquals(200, response.getStatus());
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertEquals("1", SecurityContextHolder.getContext().getAuthentication().getName());
         verify(filterChain, times(1)).doFilter(request, response);
     }
 
@@ -98,31 +107,33 @@ public class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void doFilterInternal_noJtiHeader_continuesFilterChain() throws ServletException, IOException {
-        // X-Token-Jti ヘッダがない場合、ブラックリストチェックをスキップしてフィルタチェーンが継続されることを検証する
+    void doFilterInternal_noJtiHeader_usesTokenJti() throws ServletException, IOException {
+        // X-Token-Jti ヘッダがない場合でも JWT の jti を使ってブラックリストチェックが行われることを検証する
         // Arrange
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer some-access-token");
+        String token = JwtTokenUtil.generateAccessToken("1", "valid-jti", 3600L, TOKEN_SECRET);
+        request.addHeader("Authorization", "Bearer " + token);
         request.setServletPath("/api/v1/protected");
         
         MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(tokenBlacklistService.isBlacklisted("valid-jti")).thenReturn(false);
 
         // Act
         filter.doFilterInternal(request, response, filterChain);
 
         // Assert
         assertEquals(200, response.getStatus());
-        verify(tokenBlacklistService, never()).isBlacklisted(anyString());
+        verify(tokenBlacklistService, times(1)).isBlacklisted("valid-jti");
         verify(filterChain, times(1)).doFilter(request, response);
     }
 
     @Test
-    void doFilterInternal_emptyJtiHeader_continuesFilterChain() throws ServletException, IOException {
-        // X-Token-Jti ヘッダが空の場合、ブラックリストチェックをスキップしてフィルタチェーンが継続されることを検証する
+    void doFilterInternal_emptyBearerToken_continuesFilterChain() throws ServletException, IOException {
+        // Bearer の値が空の場合、フィルタチェーンが継続されることを検証する
         // Arrange
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer some-access-token");
-        request.addHeader("X-Token-Jti", "");
+        request.addHeader("Authorization", "Bearer ");
         request.setServletPath("/api/v1/protected");
         
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -154,6 +165,89 @@ public class JwtAuthenticationFilterTest {
         assertEquals(200, response.getStatus());
         verify(tokenBlacklistService, never()).isBlacklisted(anyString());
         verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_invalidToken_returns401() throws ServletException, IOException {
+        // 不正な JWT の場合、401 が返されることを検証する
+        // Arrange
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer invalid-token");
+        request.setServletPath("/api/v1/protected");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert
+        assertEquals(401, response.getStatus());
+        assertTrue(response.getContentAsString().contains("Invalid access token"));
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_invalidSignature_returns401() throws ServletException, IOException {
+        // 署名不正の JWT の場合、401 が返されることを検証する
+        // Arrange
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        String token = JwtTokenUtil.generateAccessToken("1", "sig-jti", 3600L, "other-secret-key-for-test-minimum-32-chars");
+        request.addHeader("Authorization", "Bearer " + token);
+        request.setServletPath("/api/v1/protected");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert
+        assertEquals(401, response.getStatus());
+        assertTrue(response.getContentAsString().contains("Invalid access token"));
+        verify(filterChain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_prefersTokenJti_overHeaderJti() throws ServletException, IOException {
+        // JWT の jti を優先し、ヘッダの jti を無視することを検証する
+        // Arrange
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        String token = JwtTokenUtil.generateAccessToken("1", "token-jti", 3600L, TOKEN_SECRET);
+        request.addHeader("Authorization", "Bearer " + token);
+        request.addHeader("X-Token-Jti", "header-jti");
+        request.setServletPath("/api/v1/protected");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(tokenBlacklistService.isBlacklisted("token-jti")).thenReturn(false);
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert
+        assertEquals(200, response.getStatus());
+        verify(tokenBlacklistService, times(1)).isBlacklisted("token-jti");
+        verify(tokenBlacklistService, never()).isBlacklisted("header-jti");
+        verify(filterChain, times(1)).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_expiredToken_returns401() throws ServletException, IOException {
+        // 期限切れの JWT の場合、401 が返されることを検証する
+        // Arrange
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        String token = JwtTokenUtil.generateAccessToken("1", "expired-jti", -1L, TOKEN_SECRET);
+        request.addHeader("Authorization", "Bearer " + token);
+        request.setServletPath("/api/v1/protected");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        // Act
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Assert
+        assertEquals(401, response.getStatus());
+        assertTrue(response.getContentAsString().contains("Invalid access token"));
+        verify(filterChain, never()).doFilter(request, response);
     }
 
     // ========== shouldNotFilter テスト ==========
@@ -230,7 +324,7 @@ public class JwtAuthenticationFilterTest {
 
     @Test
     void shouldNotFilter_logoutEndpoint_returnsFalse() {
-        // /api/v1/auth/logout はフィルタを適用することを検証する（認証が必要）
+        // /api/v1/auth/logout はフィルタをスキップすることを検証する
         // Arrange
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setServletPath("/api/v1/auth/logout");
@@ -239,12 +333,12 @@ public class JwtAuthenticationFilterTest {
         boolean result = filter.shouldNotFilter(request);
 
         // Assert
-        assertFalse(result);
+        assertTrue(result);
     }
 
     @Test
     void shouldNotFilter_refreshEndpoint_returnsFalse() {
-        // /api/v1/auth/refresh はフィルタを適用することを検証する
+        // /api/v1/auth/refresh はフィルタをスキップすることを検証する
         // Arrange
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setServletPath("/api/v1/auth/refresh");
@@ -253,6 +347,6 @@ public class JwtAuthenticationFilterTest {
         boolean result = filter.shouldNotFilter(request);
 
         // Assert
-        assertFalse(result);
+        assertTrue(result);
     }
 }

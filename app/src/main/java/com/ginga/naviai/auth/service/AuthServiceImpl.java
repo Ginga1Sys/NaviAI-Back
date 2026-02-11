@@ -4,18 +4,26 @@ import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
 import com.ginga.naviai.auth.dto.LoginRequest;
 import com.ginga.naviai.auth.dto.LoginResponse;
+import com.ginga.naviai.auth.dto.TokenResponse;
 import com.ginga.naviai.auth.exception.AccountNotEnabledException;
 import com.ginga.naviai.auth.exception.InvalidCredentialsException;
+import com.ginga.naviai.auth.exception.InvalidTokenException;
+import com.ginga.naviai.auth.exception.TokenExpiredException;
 import java.util.UUID;
 
 import com.ginga.naviai.auth.entity.User;
+import com.ginga.naviai.auth.entity.RefreshToken;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
 import com.ginga.naviai.auth.repository.UserRepository;
+import com.ginga.naviai.auth.repository.RefreshTokenRepository;
 import com.ginga.naviai.auth.repository.ConfirmationTokenRepository;
+import com.ginga.naviai.auth.util.TokenUtil;
 import com.ginga.naviai.mail.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -23,16 +31,28 @@ import java.time.Instant;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final ConfirmationTokenService tokenService;
     private final MailService mailService;
 
+    @Value("${token.secret}")
+    private String tokenSecret;
+
+    @Value("${token.access.expiration:3600}")
+    private long accessTokenExpiration;
+
+    @Value("${token.refresh.expiration:2592000}")
+    private long refreshTokenExpiration;
+
     @Autowired
     public AuthServiceImpl(UserRepository userRepository,
+                           RefreshTokenRepository refreshTokenRepository,
                            BCryptPasswordEncoder passwordEncoder,
                            ConfirmationTokenService tokenService,
                            MailService mailService) {
         this.userRepository = userRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.mailService = mailService;
@@ -79,6 +99,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsernameOrEmail())
                 .or(() -> userRepository.findByEmail(request.getUsernameOrEmail()))
@@ -92,10 +113,16 @@ public class AuthServiceImpl implements AuthService {
             throw new AccountNotEnabledException("Account is not enabled yet. Please check your email.");
         }
 
-        // Generate a dummy token or use existing utility
-        // Currently, we use UUID as a placeholder for session token/JWT
-        String token = UUID.randomUUID().toString();
-        long expiresIn = 3600; // 1 hour
+        // Generate access token (currently UUID, should be JWT in production)
+        String accessToken = UUID.randomUUID().toString();
+
+        // Generate and store refresh token
+        String refreshTokenValue = TokenUtil.generateSecureToken();
+        String refreshTokenHash = TokenUtil.hashToken(refreshTokenValue, tokenSecret);
+        
+        Instant expiresAt = Instant.now().plusSeconds(refreshTokenExpiration);
+        RefreshToken refreshToken = new RefreshToken(user, refreshTokenHash, expiresAt);
+        refreshTokenRepository.save(refreshToken);
 
         UserResponse userResponse = new UserResponse();
         userResponse.setId(user.getId());
@@ -104,6 +131,57 @@ public class AuthServiceImpl implements AuthService {
         userResponse.setDisplayName(user.getDisplayName());
         userResponse.setCreatedAt(user.getCreatedAt());
 
-        return new LoginResponse(userResponse, token, expiresIn);
+        return new LoginResponse(userResponse, accessToken, accessTokenExpiration, refreshTokenValue);
+    }
+
+    @Override
+    @Transactional
+    public TokenResponse refreshTokens(String refreshTokenValue) {
+        // Hash the incoming token
+        String tokenHash = TokenUtil.hashToken(refreshTokenValue, tokenSecret);
+
+        // Find token in database
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
+
+        // Check if revoked
+        if (refreshToken.isRevoked()) {
+            throw new InvalidTokenException("Refresh token has been revoked");
+        }
+
+        // Check if expired
+        if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
+            throw new TokenExpiredException("Refresh token has expired");
+        }
+
+        User user = refreshToken.getUser();
+
+        // Check if user is still enabled
+        if (!user.isEnabled()) {
+            throw new AccountNotEnabledException("Account has been disabled");
+        }
+
+        // Update last used timestamp
+        refreshToken.setLastUsedAt(Instant.now());
+
+        // Generate new access token
+        String newAccessToken = UUID.randomUUID().toString();
+
+        // Token rotation: generate new refresh token and revoke old one
+        String newRefreshTokenValue = TokenUtil.generateSecureToken();
+        String newRefreshTokenHash = TokenUtil.hashToken(newRefreshTokenValue, tokenSecret);
+        
+        Instant newExpiresAt = Instant.now().plusSeconds(refreshTokenExpiration);
+        RefreshToken newRefreshToken = new RefreshToken(user, newRefreshTokenHash, newExpiresAt);
+        
+        // Mark old token as revoked and link to new token
+        refreshToken.setRevoked(true);
+        refreshToken.setRevokedAt(Instant.now());
+        refreshToken.setReplacedBy(newRefreshToken.getJti());
+        
+        refreshTokenRepository.save(refreshToken);
+        refreshTokenRepository.save(newRefreshToken);
+
+        return new TokenResponse(newAccessToken, accessTokenExpiration, newRefreshTokenValue);
     }
 }

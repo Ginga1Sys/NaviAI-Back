@@ -4,6 +4,8 @@ import com.ginga.naviai.auth.dto.LoginRequest;
 import com.ginga.naviai.auth.dto.LoginResponse;
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
+import com.ginga.naviai.auth.dto.RefreshRequest;
+import com.ginga.naviai.auth.dto.TokenResponse;
 import com.ginga.naviai.auth.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -51,6 +53,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse res = authService.login(request);
+        return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        TokenResponse res = authService.refreshTokens(request.getRefreshToken());
         return ResponseEntity.ok(res);
     }
 

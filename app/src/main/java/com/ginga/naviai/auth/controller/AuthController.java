@@ -6,6 +6,7 @@ import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
 import com.ginga.naviai.auth.dto.RefreshRequest;
 import com.ginga.naviai.auth.dto.TokenResponse;
+import com.ginga.naviai.auth.dto.LogoutRequest;
 import com.ginga.naviai.auth.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.auth.entity.User;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 
 import jakarta.validation.Valid;
@@ -82,5 +84,29 @@ public class AuthController {
         u.setEnabled(true);
         userRepository.save(u);
         return ResponseEntity.ok("confirmed");
+    }
+
+    /**
+     * ログアウトエンドポイント
+     * リフレッシュトークンを無効化し、ユーザーをログアウトする
+     * 
+     * 注意: 現在の実装では簡易的にユーザー名をリクエストパラメータから取得しています。
+     * 本番環境では、アクセストークンを検証して SecurityContext からユーザー情報を取得することを推奨します。
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @RequestBody(required = false) LogoutRequest request,
+            @RequestParam(value = "username", required = true) String username,
+            @RequestParam(value = "jti", required = false) String jti) {
+        
+        // 空のユーザー名を拒否
+        if (username == null || username.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Username is required"));
+        }
+        
+        String refreshToken = (request != null) ? request.getRefreshToken() : null;
+        authService.logout(username, Optional.ofNullable(refreshToken), Optional.ofNullable(jti));
+        
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 }

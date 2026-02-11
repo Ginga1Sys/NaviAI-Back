@@ -1,5 +1,15 @@
 version: '3.8'
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend-app:
     build:
       context: ./app
@@ -7,6 +17,12 @@ services:
     working_dir: /workspace
     volumes:
       - ./app:/workspace:cached
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
     command: mvn -f pom.xml -DskipTests spring-boot:run
     ports:
       - "8080:8080"
@@ -18,8 +34,12 @@ services:
     working_dir: /workspace
     volumes:
       - ./app:/workspace:cached
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - backend-app
+      - redis
     # run tests and exit
     command: mvn -f pom.xml test
 

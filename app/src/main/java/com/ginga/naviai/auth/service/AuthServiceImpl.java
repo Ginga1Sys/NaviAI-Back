@@ -2,6 +2,12 @@ package com.ginga.naviai.auth.service;
 
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
+import com.ginga.naviai.auth.dto.LoginRequest;
+import com.ginga.naviai.auth.dto.LoginResponse;
+import com.ginga.naviai.auth.exception.AccountNotEnabledException;
+import com.ginga.naviai.auth.exception.InvalidCredentialsException;
+import java.util.UUID;
+
 import com.ginga.naviai.auth.entity.User;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
 import com.ginga.naviai.auth.repository.UserRepository;
@@ -70,5 +76,34 @@ public class AuthServiceImpl implements AuthService {
         res.setDisplayName(saved.getDisplayName());
         res.setCreatedAt(saved.getCreatedAt());
         return res;
+    }
+
+    @Override
+    public LoginResponse login(LoginRequest request) {
+        User user = userRepository.findByUsername(request.getUsernameOrEmail())
+                .or(() -> userRepository.findByEmail(request.getUsernameOrEmail()))
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid username or password"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new InvalidCredentialsException("Invalid username or password");
+        }
+
+        if (!user.isEnabled()) {
+            throw new AccountNotEnabledException("Account is not enabled yet. Please check your email.");
+        }
+
+        // Generate a dummy token or use existing utility
+        // Currently, we use UUID as a placeholder for session token/JWT
+        String token = UUID.randomUUID().toString();
+        long expiresIn = 3600; // 1 hour
+
+        UserResponse userResponse = new UserResponse();
+        userResponse.setId(user.getId());
+        userResponse.setUsername(user.getUsername());
+        userResponse.setEmail(user.getEmail());
+        userResponse.setDisplayName(user.getDisplayName());
+        userResponse.setCreatedAt(user.getCreatedAt());
+
+        return new LoginResponse(userResponse, token, expiresIn);
     }
 }

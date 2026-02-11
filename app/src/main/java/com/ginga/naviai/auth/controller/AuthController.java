@@ -1,5 +1,7 @@
 package com.ginga.naviai.auth.controller;
 
+import com.ginga.naviai.auth.dto.LoginRequest;
+import com.ginga.naviai.auth.dto.LoginResponse;
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
 import com.ginga.naviai.auth.service.AuthService;
@@ -44,6 +46,12 @@ public class AuthController {
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         UserResponse res = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse res = authService.login(request);
+        return ResponseEntity.ok(res);
     }
 
     @GetMapping("/confirm")

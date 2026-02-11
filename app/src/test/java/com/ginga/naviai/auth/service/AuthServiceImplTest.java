@@ -1,9 +1,13 @@
 package com.ginga.naviai.auth.service;
 
+import com.ginga.naviai.auth.dto.LoginRequest;
+import com.ginga.naviai.auth.dto.LoginResponse;
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
 import com.ginga.naviai.auth.entity.User;
+import com.ginga.naviai.auth.exception.AccountNotEnabledException;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
+import com.ginga.naviai.auth.exception.InvalidCredentialsException;
 import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.mail.MailService;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,5 +121,120 @@ public class AuthServiceImplTest {
         // Act / Assert
         assertThrows(DuplicateResourceException.class, () -> authService.register(req));
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void login_success_returnsToken() {
+        // ユーザー名とパスワードが一致する場合、トークンが返されることを検証する
+        // Arrange
+        String rawPwd = "P@ssw0rd1";
+        String encodedPwd = "encodedPwd";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("taro");
+        user.setEmail("taro@example.com");
+        user.setPasswordHash(encodedPwd);
+        user.setEnabled(true);
+        user.setDisplayName("Taro");
+        user.setCreatedAt(Instant.now());
+
+        when(userRepository.findByUsername("taro")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(rawPwd, encodedPwd)).thenReturn(true);
+
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("taro");
+        req.setPassword(rawPwd);
+
+        // Act
+        LoginResponse res = authService.login(req);
+
+        // Assert
+        assertNotNull(res);
+        assertNotNull(res.getToken());
+        assertEquals("taro", res.getUser().getUsername());
+        verify(passwordEncoder).matches(rawPwd, encodedPwd);
+    }
+    
+    @Test
+    void login_byEmail_success() {
+         // メールアドレスとパスワードが一致する場合、ログインが成功することを検証する
+         // Arrange
+        String rawPwd = "P@ssw0rd1";
+        String encodedPwd = "encodedPwd";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("taro");
+        user.setEmail("taro@example.com");
+        user.setPasswordHash(encodedPwd);
+        user.setEnabled(true);
+
+        when(userRepository.findByUsername("taro@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("taro@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(rawPwd, encodedPwd)).thenReturn(true);
+
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("taro@example.com");
+        req.setPassword(rawPwd);
+
+        // Act
+        LoginResponse res = authService.login(req);
+
+        // Assert
+        assertNotNull(res);
+        assertEquals("taro@example.com", res.getUser().getEmail());
+    }
+
+    @Test
+    void lo存在しないユーザーの場合、InvalidCredentialsException が投げられることを検証する
+        // gin_invalidCredentials_throws() {
+        // Arrange
+        when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("unknown")).thenReturn(Optional.empty());
+        
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("unknown");
+        req.setPassword("pwd");
+        
+        // Act & Assert
+        assertThrows(InvalidCredentialsException.class, () -> authService.login(req));
+    }
+    
+    @Testパスワードが誤っている場合、InvalidCredentialsException が投げられることを検証する
+        // 
+    void login_wrongPassword_throws() {
+        // Arrange
+        User user = new User();
+        user.setUsername("taro");
+        user.setPasswordHash("correctHash");
+        
+        when(userRepository.findByUsername("taro")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "correctHash")).thenReturn(false);
+        
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("taro");
+        req.setPassword("wrong");
+        
+        // Act & Assert
+        assertThrows(InvalidCredentialsException.class, () -> authService.login(req));
+    }
+アカウントがまだ有効化されていない場合、AccountNotEnabledException が投げられることを検証する
+        // 
+    @Test
+    void login_notEnabled_throws() {
+        // Arrange
+        User user = new User();
+        user.setUsername("taro");
+        user.setPasswordHash("hash");
+        user.setEnabled(false);
+
+        when(userRepository.findByUsername("taro")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("pwd", "hash")).thenReturn(true);
+
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("taro");
+        req.setPassword("pwd");
+
+        // Act & Assert
+        assertThrows(AccountNotEnabledException.class, () -> authService.login(req));
     }
 }

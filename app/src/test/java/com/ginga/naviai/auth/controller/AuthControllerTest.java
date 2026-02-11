@@ -1,9 +1,12 @@
 package com.ginga.naviai.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ginga.naviai.auth.dto.LoginRequest;
+import com.ginga.naviai.auth.dto.LoginResponse;
 import com.ginga.naviai.auth.dto.RegisterRequest;
 import com.ginga.naviai.auth.dto.UserResponse;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
+import com.ginga.naviai.auth.exception.InvalidCredentialsException;
 import com.ginga.naviai.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,6 +93,45 @@ public class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(req)))
             .andExpect(status().isConflict());
+    }
+
+    @Test
+    void login_success_returns200() throws Exception {
+        // 正しい資格情報の場合、HTTP 200 とトークンが返されることを検証する
+        UserResponse ur = new UserResponse();
+        ur.setId(1L);
+        ur.setUsername("user");
+        ur.setEmail("u@ginga.info");
+        
+        LoginResponse lr = new LoginResponse(ur, "dummy-token", 3600);
+        
+        when(authService.login(any(LoginRequest.class))).thenReturn(lr);
+
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("user");
+        req.setPassword("pass");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.token").value("dummy-token"))
+            .andExpect(jsonPath("$.user.username").value("user"));
+    }
+
+    @Test
+    void login_fail_returns401() throws Exception {
+        // 認証に失敗した場合、HTTP 401 が返されることを検証する
+        doThrow(new InvalidCredentialsException("bad creds")).when(authService).login(any(LoginRequest.class));
+
+        LoginRequest req = new LoginRequest();
+        req.setUsernameOrEmail("user");
+        req.setPassword("wrong");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(req)))
+            .andExpect(status().isUnauthorized());
     }
 
     @org.junit.jupiter.api.Test

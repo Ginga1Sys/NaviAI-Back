@@ -9,13 +9,13 @@
 必須API一覧
 
 1. Auth（認証）
-   - `POST /api/v1/auth/login` — ログイン
-     - 説明: メール/パスワードで認証し、`access_token` と `refresh_token`（+ expires_in）を返す。
+    - `POST /api/v1/auth/login` — ログイン
+       - 説明: メール/パスワードで認証し、JWT 形式の `access_token` と `refresh_token`（+ expires_in）を返す。
      - リクエスト: `{ "email": "...", "password": "..." }`
      - レスポンス例: `{ "data": { "access_token": "...", "refresh_token": "...", "expires_in": 3600 } }`
 
-   - `POST /api/v1/auth/refresh` — トークン更新
-     - 説明: リフレッシュトークンを受け取り新しいアクセストークンを発行する。
+    - `POST /api/v1/auth/refresh` — トークン更新
+       - 説明: リフレッシュトークンを受け取り新しい JWT アクセストークンを発行する。
      - リクエスト: `{ "refresh_token": "..." }`
      - レスポンス例: `{ "data": { "access_token": "...", "refresh_token": "...", "expires_in": 3600 } }`
 

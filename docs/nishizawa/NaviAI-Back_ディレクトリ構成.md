@@ -45,11 +45,27 @@
             - validation
               - StrongPassword.java: パスワード強度チェック用のカスタム検証アノテーション。
               - StrongPasswordValidator.java: カスタムバリデータ。大文字・小文字・数字・記号のカテゴリ数を数え、3種以上かつ長さ >= 8 で有効と判定。
+          - knowledge
+            - entity
+              - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。
+              - Tag.java: タグ情報のエンティティ。
+            - repository
+              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）を含む。
+          - dashboard
+            - controller
+              - DashboardController.java: ダッシュボード用 API。GET /api/v1/dashboard でサマリー情報を提供。
+            - dto
+              - DashboardSummaryResponse.java: ダッシュボードの統計情報（投稿総数、週間投稿数、承認待ち数、人気タグ）を返す DTO。
+            - service
+              - DashboardService.java: ダッシュボードサービスのインターフェース。
+              - DashboardServiceImpl.java: 記事リポジトリを利用してダッシュボード用サマリーデータを集計・構築する実装。
   - resources
     - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。
     - db
       - migration
         - V1__create_users_table.sql: `users` テーブル作成用のマイグレーション SQL（id, username, email, password_hash, display_name, enabled, created_at, updated_at を定義）。
+        - V2__create_refresh_tokens_table.sql: リフレッシュトークン管理用のテーブル定義。
+        - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
 
 
 > 生成日時: 2026-01-27

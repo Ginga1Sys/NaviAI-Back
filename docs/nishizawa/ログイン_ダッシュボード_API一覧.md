@@ -5,6 +5,11 @@
 前提
 - ベースパス: `/api/v1`
 - 認可: 多くのAPIは `Authorization: Bearer <access_token>` を要求
+- ダッシュボード画面のイメージ図: `proj-1sys-ax-2025\docs\00_personal\nishizawa\基本設計書\画面イメージ図\SCR-03_ダッシュボード_イメージ図_2.svg`
+- 要件定義書: `proj-1sys-ax-2025\docs\00_personal\nishizawa\統合要件定義書.md`
+- 基本設計書（API）: `proj-1sys-ax-2025\docs\00_personal\nishizawa\基本設計書\基本設計_API.md`
+- 基本設計書（画面遷移）: `proj-1sys-ax-2025\docs\00_personal\nishizawa\基本設計書\基本設計_画面遷移.md`
+- 基本設計書（DB）: `proj-1sys-ax-2025\docs\00_personal\nishizawa\基本設計書\基本設計_DB.md`
 
 必須API一覧
 
@@ -33,7 +38,9 @@
      - 説明: 承認待ち件数、最近の投稿一覧（簡易）、ウィジェット用集計などを返す。ページング/フィルタをサポート可能。
      - レスポンス例: `{ "data": { "pendingCount": 5, "recent": [ ... ], "activity": { ... } } }`
 
-   - `GET /api/v1/dashboard/widgets/{widgetId}` — 個別ウィジェットの詳細（任意）
+   - `GET /api/v1/dashboard/activity?range=week` — 週次アクティビティの集計データを取得（例: 新着件数、コメント数、いいね数の日別内訳）。ダッシュボードの「週次アクティビティ」クリックで利用。
+
+   - `GET /api/v1/knowledge` — ダッシュボードに表示するおすすめ記事1件と新着記事3件の取得、sort=created_atで新着、filter=recommendedでおすすめを取得する形で集約。クイック操作の「新着」「おすすめ」もこのAPIを呼び出す形で実装する。
 
 4. Attachments / Media（画像などの表示）
     - `GET /api/v1/attachments/{id}` — 添付ファイル取得（署名付きURLを返す等）

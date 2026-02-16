@@ -39,4 +39,6 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
                    "ORDER BY like_count DESC, k.published_at DESC " +
                    "LIMIT :limit", nativeQuery = true)
     List<Object[]> findTopRecommendedArticles(@Param("limit") int limit);
+
+    long countByCreatedAtBetweenAndDeletedFalse(Instant start, Instant end);
 }

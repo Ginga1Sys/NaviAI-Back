@@ -24,6 +24,9 @@ public class DashboardSummaryResponse {
     /** 承認待ち件数 */
     private long pendingApprovals;
 
+    /** 週次アクティビティ（週開始日時・件数） */
+    private java.util.List<WeeklyActivity> weeklyActivity;
+
     /** 人気タグ上位 */
     private List<TagSummary> topTags;
 
@@ -51,5 +54,13 @@ public class DashboardSummaryResponse {
         private String authorDisplayName;
         private java.time.Instant publishedAt;
         private long likeCount;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class WeeklyActivity {
+        private java.time.Instant weekStart;
+        private long count;
     }
 }

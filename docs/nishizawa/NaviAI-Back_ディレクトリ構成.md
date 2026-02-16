@@ -16,7 +16,7 @@
             - SmtpMailService.java: `MailService` 実装。`JavaMailSender` を使って `SimpleMailMessage` を送信する。`@Async` と `@Retryable` を使用し、送信失敗時のリカバリ処理とテスト用の `simulateFailure` フラグを備える。
           - auth
             - controller
-              - AuthController.java: 認証関連の REST API。`/register` でユーザー登録を受け付け、`/login` で認証（ユーザー名/メール + パスワード）を受け付けてトークンを返す。`/confirm` でメール確認トークンを検証してユーザーを有効化する処理を持つ。さらに `POST /api/v1/auth/refresh`（リフレッシュトークン交換）エンドポイントが追加され、新しいアクセストークンを発行する処理を提供する。
+              - AuthController.java: 認証関連の REST API。`/register` でユーザー登録を受け付け、`/login` で認証（ユーザー名/メール + パスワード）を受け付けてトークンを返す。`/confirm` でメール確認トークンを検証してユーザーを有効化する処理を持つ。さらに `POST /api/v1/auth/refresh`（リフレッシュトークン交換）および `POST /api/v1/auth/logout`（ログアウト）エンドポイントが追加され、新しいアクセストークン発行やログアウト処理を提供する。
             - dto
               - UserResponse.java: クライアントへ返すユーザー情報の DTO（id, username, email, displayName, createdAt）。
               - RegisterRequest.java: 登録リクエストの DTO。バリデーション注釈（`@NotBlank`, `@Email`, `@Size`, ドメイン制限 `@Pattern`, カスタム `@StrongPassword`）を含む。
@@ -34,9 +34,14 @@
               - UserRepository.java: `User` 用の `JpaRepository`。`findByUsername` / `findByEmail` を提供。
               - ConfirmationTokenRepository.java: `ConfirmationToken` 用の `JpaRepository`。`findByToken` を提供。
             - service
-              - AuthService.java: 認証サービスのインターフェース（`register`, `login`, `refresh`）。
-              - AuthServiceImpl.java: 登録とログイン、リフレッシュ処理の実装。登録では重複チェック、ユーザー作成（初期は無効化）、トークン作成と確認メール送信を行う。ログインでは `usernameOrEmail` と `password` を検証し、パスワード不一致や未有効化の場合はそれぞれ例外を投げ、成功時は一時トークン（現在は UUID をプレースホルダ）と有効期限を含む `LoginResponse` を返す。`refresh` は受け取ったリフレッシュトークンを検証し、新しいアクセストークン/有効期限を返す処理を行う。
+              - AuthService.java: 認証サービスのインターフェース（`register`, `login`, `refresh`, `logout`）。
+              - AuthServiceImpl.java: 登録とログイン、リフレッシュ、ログアウト処理の実装。登録では重複チェック、ユーザー作成（初期は無効化）、トークン作成と確認メール送信を行う。ログインでは `usernameOrEmail` と `password` を検証し、パスワード不一致や未有効化の場合はそれぞれ例外を投げ、成功時は一時トークン（現在は UUID をプレースホルダ）と有効期限を含む `LoginResponse` を返す。`refresh` は受け取ったリフレッシュトークンを検証し、新しいアクセストークン/有効期限を返す処理を行い、`logout` はリフレッシュトークンの無効化等を扱います。
               - ConfirmationTokenService.java: トークン生成（UUID）、有効期限設定、トークン検索、確認時刻の更新を行うサービス。
+          - user
+            - controller
+              - UserController.java: ユーザー情報取得 API（例: `GET /api/v1/users/me`）など、ユーザー関連の公開エンドポイントを提供。
+            - dto
+              - UserProfileResponse.java: ユーザー情報応答用 DTO（id, username, email, displayName, createdAt 等）。
             - validation
               - StrongPassword.java: パスワード強度チェック用のカスタム検証アノテーション。
               - StrongPasswordValidator.java: カスタムバリデータ。大文字・小文字・数字・記号のカテゴリ数を数え、3種以上かつ長さ >= 8 で有効と判定。

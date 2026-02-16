@@ -19,6 +19,7 @@ import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.auth.repository.RefreshTokenRepository;
 import com.ginga.naviai.auth.repository.ConfirmationTokenRepository;
 import com.ginga.naviai.auth.util.TokenUtil;
+import com.ginga.naviai.auth.util.JwtTokenUtil;
 import com.ginga.naviai.mail.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -117,8 +118,13 @@ public class AuthServiceImpl implements AuthService {
             throw new AccountNotEnabledException("Account is not enabled yet. Please check your email.");
         }
 
-        // Generate access token (currently UUID, should be JWT in production)
-        String accessToken = UUID.randomUUID().toString();
+        String accessTokenJti = UUID.randomUUID().toString();
+        String accessToken = JwtTokenUtil.generateAccessToken(
+            String.valueOf(user.getId()),
+            accessTokenJti,
+            accessTokenExpiration,
+            tokenSecret
+        );
 
         // Generate and store refresh token
         String refreshTokenValue = TokenUtil.generateSecureToken();
@@ -168,8 +174,13 @@ public class AuthServiceImpl implements AuthService {
         // Update last used timestamp
         refreshToken.setLastUsedAt(Instant.now());
 
-        // Generate new access token
-        String newAccessToken = UUID.randomUUID().toString();
+        String newAccessTokenJti = UUID.randomUUID().toString();
+        String newAccessToken = JwtTokenUtil.generateAccessToken(
+            String.valueOf(user.getId()),
+            newAccessTokenJti,
+            accessTokenExpiration,
+            tokenSecret
+        );
 
         // Token rotation: generate new refresh token and revoke old one
         String newRefreshTokenValue = TokenUtil.generateSecureToken();

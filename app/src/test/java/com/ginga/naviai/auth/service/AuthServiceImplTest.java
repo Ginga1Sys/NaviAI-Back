@@ -14,7 +14,9 @@ import com.ginga.naviai.auth.exception.InvalidTokenException;
 import com.ginga.naviai.auth.exception.TokenExpiredException;
 import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.auth.repository.RefreshTokenRepository;
+import com.ginga.naviai.auth.util.JwtTokenUtil;
 import com.ginga.naviai.mail.MailService;
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -167,7 +169,12 @@ public class AuthServiceImplTest {
         // Assert
         assertNotNull(res);
         assertNotNull(res.getToken());
+        assertNotNull(res.getRefreshToken());
         assertEquals("taro", res.getUser().getUsername());
+        Claims claims = JwtTokenUtil.parseClaims(res.getToken(), "test-secret-key-for-hashing-tokens-minimum-32-chars");
+        assertEquals("1", claims.getSubject());
+        assertNotNull(claims.getId());
+        assertNotNull(claims.getExpiration());
         verify(passwordEncoder).matches(rawPwd, encodedPwd);
     }
     
@@ -281,6 +288,10 @@ public class AuthServiceImplTest {
         assertNotNull(response.getAccessToken());
         assertNotNull(response.getRefreshToken());
         assertEquals(3600L, response.getExpiresIn());
+        Claims claims = JwtTokenUtil.parseClaims(response.getAccessToken(), "test-secret-key-for-hashing-tokens-minimum-32-chars");
+        assertEquals("1", claims.getSubject());
+        assertNotNull(claims.getId());
+        assertNotNull(claims.getExpiration());
 
         // Verify old token was revoked
         verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));

@@ -1,6 +1,7 @@
 package com.ginga.naviai.auth.filter;
 
 import com.ginga.naviai.auth.service.TokenBlacklistService;
+import com.ginga.naviai.auth.util.JwtTokenUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,8 +9,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.beans.factory.annotation.Value;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 
 import java.io.IOException;
 
@@ -31,6 +40,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenBlacklistService tokenBlacklistService;
 
+    @Value("${token.secret}")
+    private String tokenSecret;
+
     @Autowired
     public JwtAuthenticationFilter(TokenBlacklistService tokenBlacklistService) {
         this.tokenBlacklistService = tokenBlacklistService;
@@ -50,23 +62,45 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // jti が指定されている場合、ブラックリストをチェック
-        if (jti != null && !jti.isEmpty()) {
-            if (tokenBlacklistService.isBlacklisted(jti)) {
-                logger.warn("Token with jti {} is blacklisted", jti);
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"message\":\"Token has been revoked\"}");
-                return;
-            }
+        String tokenValue = authHeader.substring(BEARER_PREFIX.length()).trim();
+        if (tokenValue.isEmpty()) {
+            filterChain.doFilter(request, response);
+            return;
         }
 
-        // 将来の JWT 実装: ここでトークンを検証し、クレームから jti を取得して
-        // ブラックリストチェックを行う
-        // String token = authHeader.substring(BEARER_PREFIX.length());
-        // Claims claims = validateAndParseJwt(token);
-        // String jtiFromToken = claims.get("jti", String.class);
-        // if (tokenBlacklistService.isBlacklisted(jtiFromToken)) { ... }
+        try {
+            Claims claims = JwtTokenUtil.parseClaims(tokenValue, tokenSecret);
+            String jtiFromToken = claims.getId();
+            String subject = claims.getSubject();
+
+            String blacklistJti = (jtiFromToken != null && !jtiFromToken.isEmpty()) ? jtiFromToken : jti;
+            if (blacklistJti != null && !blacklistJti.isEmpty()) {
+                if (tokenBlacklistService.isBlacklisted(blacklistJti)) {
+                    logger.warn("Token with jti {} is blacklisted", blacklistJti);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"message\":\"Token has been revoked\"}");
+                    return;
+                }
+            }
+
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                        subject,
+                        null,
+                        java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
+        } catch (JwtException ex) {
+            logger.warn("Invalid access token", ex);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Invalid access token\"}");
+            return;
+        }
 
         filterChain.doFilter(request, response);
     }
@@ -75,9 +109,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
         // 認証不要のエンドポイントをスキップ
-        return path.startsWith("/api/v1/auth/register") ||
-               path.startsWith("/api/v1/auth/login") ||
-               path.startsWith("/api/v1/auth/confirm") ||
+        return path.startsWith("/api/v1/auth/") ||
                path.startsWith("/h2-console");
     }
 }

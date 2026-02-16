@@ -9,6 +9,7 @@ import com.ginga.naviai.auth.exception.AccountNotEnabledException;
 import com.ginga.naviai.auth.exception.InvalidCredentialsException;
 import com.ginga.naviai.auth.exception.InvalidTokenException;
 import com.ginga.naviai.auth.exception.TokenExpiredException;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.ginga.naviai.auth.entity.User;
@@ -35,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final ConfirmationTokenService tokenService;
     private final MailService mailService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${token.secret}")
     private String tokenSecret;
@@ -50,12 +52,14 @@ public class AuthServiceImpl implements AuthService {
                            RefreshTokenRepository refreshTokenRepository,
                            BCryptPasswordEncoder passwordEncoder,
                            ConfirmationTokenService tokenService,
-                           MailService mailService) {
+                           MailService mailService,
+                           TokenBlacklistService tokenBlacklistService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.mailService = mailService;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Override
@@ -183,5 +187,39 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.save(newRefreshToken);
 
         return new TokenResponse(newAccessToken, accessTokenExpiration, newRefreshTokenValue);
+    }
+
+    @Override
+    @Transactional
+    public void logout(String username, Optional<String> refreshTokenValue, Optional<String> accessTokenJti) {
+        // リフレッシュトークンが指定されている場合、DB 上で無効化する
+        if (refreshTokenValue.isPresent() && !refreshTokenValue.get().isEmpty()) {
+            String tokenHash = TokenUtil.hashToken(refreshTokenValue.get(), tokenSecret);
+            Optional<RefreshToken> optToken = refreshTokenRepository.findByTokenHash(tokenHash);
+            
+            if (optToken.isPresent()) {
+                RefreshToken refreshToken = optToken.get();
+                
+                // トークンがリクエストしたユーザーに属しているか確認
+                if (!refreshToken.getUser().getUsername().equals(username)) {
+                    throw new InvalidTokenException("Token does not belong to the user");
+                }
+                
+                // まだ無効化されていない場合のみ処理
+                if (!refreshToken.isRevoked()) {
+                    refreshToken.setRevoked(true);
+                    refreshToken.setRevokedAt(Instant.now());
+                    refreshTokenRepository.save(refreshToken);
+                }
+            }
+            // トークンが存在しない場合は静かに成功扱い（冪等性確保）
+        }
+        
+        // アクセストークンの jti を Redis ブラックリストに追加
+        if (accessTokenJti.isPresent() && !accessTokenJti.get().isEmpty()) {
+            // TTL はアクセストークンの有効期限（残存時間を正確に計算するには別途対応が必要だが、
+            // 簡易実装として全有効期限を使用）
+            tokenBlacklistService.addToBlacklist(accessTokenJti.get(), accessTokenExpiration);
+        }
     }
 }

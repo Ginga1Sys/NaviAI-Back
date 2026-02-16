@@ -50,6 +50,9 @@ public class AuthServiceImplTest {
     @Mock
     private MailService mailService;
 
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
@@ -436,6 +439,207 @@ public class AuthServiceImplTest {
         assertNotNull(response.getRefreshToken(), "Refresh token should be generated");
         assertFalse(response.getRefreshToken().isEmpty(), "Refresh token should not be empty");
         verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
+    }
+
+    // ========== ログアウト関連のテスト ==========
+
+    @Test
+    void logout_withValidRefreshToken_revokesToken() {
+        // 有効なリフレッシュトークンを指定してログアウトすると、該当トークンが無効化されることを検証する
+        // Arrange
+        String refreshTokenValue = "valid-refresh-token";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        authService.logout("testuser", Optional.of(refreshTokenValue), Optional.empty());
+
+        // Assert
+        assertTrue(refreshToken.isRevoked(), "Refresh token should be revoked");
+        assertNotNull(refreshToken.getRevokedAt(), "Revoked timestamp should be set");
+        verify(refreshTokenRepository, times(1)).save(refreshToken);
+    }
+
+    @Test
+    void logout_withoutRefreshToken_succeedsQuietly() {
+        // リフレッシュトークンなしでログアウトしても、エラーなく成功すること（冪等性）を検証する
+        // Act & Assert - no exception should be thrown
+        assertDoesNotThrow(() -> authService.logout("testuser", Optional.empty(), Optional.empty()));
+        
+        // Verify no token repository interactions
+        verify(refreshTokenRepository, never()).findByTokenHash(anyString());
+        verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void logout_withEmptyRefreshToken_succeedsQuietly() {
+        // 空のリフレッシュトークン文字列でログアウトしても、エラーなく成功すること（冪等性）を検証する
+        // Act & Assert - no exception should be thrown
+        assertDoesNotThrow(() -> authService.logout("testuser", Optional.of(""), Optional.empty()));
+        
+        // Verify no token repository interactions
+        verify(refreshTokenRepository, never()).findByTokenHash(anyString());
+        verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void logout_withNonExistentToken_succeedsQuietly() {
+        // 存在しないトークンでログアウトしても、エラーなく成功すること（冪等性）を検証する
+        // Arrange
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.empty());
+
+        // Act & Assert - no exception should be thrown
+        assertDoesNotThrow(() -> authService.logout("testuser", Optional.of("non-existent-token"), Optional.empty()));
+        verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void logout_withAlreadyRevokedToken_succeedsQuietly() {
+        // 既に無効化されたトークンでログアウトしても、エラーなく成功すること（冪等性）を検証する
+        // Arrange
+        String refreshTokenValue = "already-revoked-token";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(true);
+        refreshToken.setRevokedAt(Instant.now().minusSeconds(3600));
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+
+        // Act & Assert - no exception should be thrown
+        assertDoesNotThrow(() -> authService.logout("testuser", Optional.of(refreshTokenValue), Optional.empty()));
+        
+        // Verify no save was called since token was already revoked
+        verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void logout_withExpiredToken_succeedsQuietly() {
+        // 期限切れのトークンでログアウトしても、エラーなく成功すること（冪等性）を検証する
+        // Arrange
+        String refreshTokenValue = "expired-token";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().minusSeconds(3600)); // 1時間前に期限切れ
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act & Assert - no exception should be thrown
+        assertDoesNotThrow(() -> authService.logout("testuser", Optional.of(refreshTokenValue), Optional.empty()));
+        
+        // 期限切れでも無効化処理は実行される
+        assertTrue(refreshToken.isRevoked(), "Expired token should still be revoked");
+        verify(refreshTokenRepository, times(1)).save(refreshToken);
+    }
+
+    @Test
+    void logout_withTokenBelongingToOtherUser_throwsException() {
+        // 他のユーザーのトークンでログアウトを試みた場合、InvalidTokenException が投げられることを検証する
+        // Arrange
+        String refreshTokenValue = "other-users-token";
+        User otherUser = new User();
+        otherUser.setId(2L);
+        otherUser.setUsername("otheruser");
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(otherUser);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+
+        // Act & Assert
+        assertThrows(InvalidTokenException.class, 
+            () -> authService.logout("testuser", Optional.of(refreshTokenValue), Optional.empty()),
+            "Should throw InvalidTokenException when token belongs to another user");
+        
+        // Verify token was not revoked
+        verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
+    }
+
+    // ========== Redis ブラックリスト関連のテスト ==========
+
+    @Test
+    void logout_withJti_addsToBlacklist() {
+        // jti が指定されている場合、Redis ブラックリストに追加されることを検証する
+        // Arrange
+        String jti = "test-jti-12345";
+
+        // Act
+        authService.logout("testuser", Optional.empty(), Optional.of(jti));
+
+        // Assert
+        verify(tokenBlacklistService, times(1)).addToBlacklist(eq(jti), eq(3600L));
+    }
+
+    @Test
+    void logout_withEmptyJti_doesNotAddToBlacklist() {
+        // 空の jti の場合、Redis ブラックリストには追加されないことを検証する
+        // Act
+        authService.logout("testuser", Optional.empty(), Optional.of(""));
+
+        // Assert
+        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), anyLong());
+    }
+
+    @Test
+    void logout_withoutJti_doesNotAddToBlacklist() {
+        // jti が指定されていない場合、Redis ブラックリストには追加されないことを検証する
+        // Act
+        authService.logout("testuser", Optional.empty(), Optional.empty());
+
+        // Assert
+        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), anyLong());
+    }
+
+    @Test
+    void logout_withRefreshTokenAndJti_revokesBothTokens() {
+        // リフレッシュトークンと jti の両方が指定されている場合、両方が無効化されることを検証する
+        // Arrange
+        String refreshTokenValue = "valid-refresh-token";
+        String jti = "test-jti-12345";
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setId(1L);
+        refreshToken.setUser(user);
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plusSeconds(3600));
+
+        when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        authService.logout("testuser", Optional.of(refreshTokenValue), Optional.of(jti));
+
+        // Assert
+        assertTrue(refreshToken.isRevoked(), "Refresh token should be revoked");
+        verify(refreshTokenRepository, times(1)).save(refreshToken);
+        verify(tokenBlacklistService, times(1)).addToBlacklist(eq(jti), eq(3600L));
     }
 }
 

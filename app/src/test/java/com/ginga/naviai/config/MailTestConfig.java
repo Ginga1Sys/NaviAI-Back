@@ -1,4 +1,4 @@
-package com.ginga.naviai.test.config;
+package com.ginga.naviai.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

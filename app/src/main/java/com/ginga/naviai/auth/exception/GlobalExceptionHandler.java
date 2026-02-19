@@ -16,6 +16,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import com.ginga.naviai.user.exception.UserNotFoundException;
 
 import java.time.Instant;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -119,5 +121,25 @@ public class GlobalExceptionHandler {
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("message", ex.getMessage() == null ? "Internal server error" : ex.getMessage());
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Object> handleAccessDenied(AccessDeniedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.FORBIDDEN.value());
+        body.put("error", "Forbidden");
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Object> handleAuthenticationException(AuthenticationException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("error", "Unauthorized");
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
     }
 }

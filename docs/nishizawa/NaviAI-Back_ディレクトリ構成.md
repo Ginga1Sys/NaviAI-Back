@@ -59,6 +59,11 @@
             - service
               - DashboardService.java: ダッシュボードサービスのインターフェース。
               - DashboardServiceImpl.java: 記事リポジトリを利用してダッシュボード用サマリーデータを集計・構築する実装。
+              - security
+                - JwtUtils.java: JWT 検証・Claims 取得ユーティリティ。トークン検証、`Authentication` 生成を行う。
+                - JwtAuthFilter.java: `OncePerRequestFilter` 実装。`Authorization: Bearer <token>` を検証し `SecurityContext` に `Authentication` を設定する。
+                - annotation/RequireRoles.java, RequirePermissions.java: メソッド／クラス単位の RBAC アノテーション。
+                - RbacAspect.java: AOP によるアノテーション前の権限チェック実装。
   - resources
     - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。
     - db

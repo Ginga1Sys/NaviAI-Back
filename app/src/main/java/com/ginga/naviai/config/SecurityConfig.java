@@ -1,6 +1,7 @@
 package com.ginga.naviai.config;
 
 import com.ginga.naviai.auth.filter.JwtAuthenticationFilter;
+import com.ginga.naviai.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -23,7 +24,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+                                                   JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                   JwtAuthFilter jwtAuthFilter) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -38,6 +40,8 @@ public class SecurityConfig {
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        // Additional JWT parsing/filtering (RBAC helper) - added by middleware task
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

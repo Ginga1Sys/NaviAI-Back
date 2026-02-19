@@ -24,7 +24,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// TODO:テストを実行すると失敗するので修正する
 @WebMvcTest(KnowledgeController.class)
 public class KnowledgeControllerTest {
 
@@ -33,6 +32,9 @@ public class KnowledgeControllerTest {
 
     @MockBean
     private KnowledgeService knowledgeService;
+
+    @MockBean
+    private com.ginga.naviai.auth.service.TokenBlacklistService tokenBlacklistService;
 
     @Test
     @WithMockUser
@@ -49,6 +51,7 @@ public class KnowledgeControllerTest {
     }
 
     @Test
+    @WithMockUser
     public void testGetKnowledgeByAuthorId() throws Exception {
         Page<KnowledgeResponse> page = new PageImpl<>(Collections.emptyList());
         when(knowledgeService.getKnowledgeByAuthorId(eq(1L), any(PageRequest.class))).thenReturn(page);
@@ -66,8 +69,10 @@ public class KnowledgeControllerTest {
     }
 
     @Test
+    @WithMockUser
     public void testGetKnowledge_badRequest() throws Exception {
         mockMvc.perform(get("/api/v1/knowledge"))
                 .andExpect(status().isBadRequest());
     }
+
 }

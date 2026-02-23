@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.ginga.naviai.auth.entity.User;
+import com.ginga.naviai.auth.entity.UserRole;
 import com.ginga.naviai.auth.entity.RefreshToken;
 import com.ginga.naviai.auth.exception.DuplicateResourceException;
 import com.ginga.naviai.auth.repository.UserRepository;
@@ -77,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
         u.setEmail(request.getEmail());
         u.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         u.setDisplayName(request.getDisplayName());
+        u.setRole(UserRole.USER);
         u.setEnabled(false);
         u.setCreatedAt(Instant.now());
         u.setUpdatedAt(Instant.now());

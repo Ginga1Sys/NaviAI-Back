@@ -1,6 +1,9 @@
 package com.ginga.naviai.auth.filter;
 
 import com.ginga.naviai.auth.service.TokenBlacklistService;
+import com.ginga.naviai.auth.entity.User;
+import com.ginga.naviai.auth.entity.UserRole;
+import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.auth.util.JwtTokenUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,6 +24,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * JWT 認証フィルタ
@@ -39,13 +44,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String JTI_HEADER = "X-Token-Jti";
 
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserRepository userRepository;
 
     @Value("${token.secret}")
     private String tokenSecret;
 
     @Autowired
-    public JwtAuthenticationFilter(TokenBlacklistService tokenBlacklistService) {
+    public JwtAuthenticationFilter(TokenBlacklistService tokenBlacklistService, UserRepository userRepository) {
         this.tokenBlacklistService = tokenBlacklistService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -85,11 +92,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+                Long userId = null;
+                try {
+                    userId = Long.valueOf(subject);
+                } catch (NumberFormatException ignored) {
+                }
+
+                if (userId != null) {
+                    Optional<User> opt = userRepository.findById(userId);
+                    if (opt.isPresent()) {
+                        User u = opt.get();
+                        if (!u.isEnabled()) {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"message\":\"Account is disabled\"}");
+                            return;
+                        }
+                        UserRole role = u.getRole();
+                        if (role == UserRole.ADMIN) {
+                            authorities = List.of(
+                                new SimpleGrantedAuthority("ROLE_ADMIN"),
+                                new SimpleGrantedAuthority("ROLE_USER")
+                            );
+                        } else if (role == UserRole.MODERATOR) {
+                            authorities = List.of(
+                                new SimpleGrantedAuthority("ROLE_MODERATOR"),
+                                new SimpleGrantedAuthority("ROLE_USER")
+                            );
+                        }
+                    }
+                }
+
                 UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                         subject,
                         null,
-                        java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                        authorities
                     );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

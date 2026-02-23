@@ -1,6 +1,7 @@
 package com.ginga.naviai.auth.filter;
 
 import com.ginga.naviai.auth.service.TokenBlacklistService;
+import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.auth.util.JwtTokenUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -30,14 +32,18 @@ public class JwtAuthenticationFilterTest {
     private TokenBlacklistService tokenBlacklistService;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private FilterChain filterChain;
 
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setup() {
-        filter = new JwtAuthenticationFilter(tokenBlacklistService);
+        filter = new JwtAuthenticationFilter(tokenBlacklistService, userRepository);
         ReflectionTestUtils.setField(filter, "tokenSecret", TOKEN_SECRET);
+        lenient().when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
         SecurityContextHolder.clearContext();
     }
 

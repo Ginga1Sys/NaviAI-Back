@@ -15,6 +15,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.Arrays;
+import org.mockito.Mockito;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +50,35 @@ public class KnowledgeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.meta.total").value(0));
+    }
+
+    @Test
+    @WithMockUser
+    public void testGetMyKnowledge_singleItem() throws Exception {
+        KnowledgeResponse item = Mockito.mock(KnowledgeResponse.class);
+        Page<KnowledgeResponse> page = new PageImpl<>(Collections.singletonList(item));
+        when(knowledgeService.getMyKnowledgeByUsername(eq("user"), any(PageRequest.class))).thenReturn(page);
+
+        User userDetails = new User("user", "password", Collections.emptyList());
+        mockMvc.perform(get("/api/v1/knowledge?mine=true").with(user(userDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.meta.total").value(1));
+    }
+
+    @Test
+    @WithMockUser
+    public void testGetMyKnowledge_multipleItems() throws Exception {
+        KnowledgeResponse a = Mockito.mock(KnowledgeResponse.class);
+        KnowledgeResponse b = Mockito.mock(KnowledgeResponse.class);
+        Page<KnowledgeResponse> page = new PageImpl<>(Arrays.asList(a, b));
+        when(knowledgeService.getMyKnowledgeByUsername(eq("user"), any(PageRequest.class))).thenReturn(page);
+
+        User userDetails = new User("user", "password", Collections.emptyList());
+        mockMvc.perform(get("/api/v1/knowledge?mine=true").with(user(userDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.meta.total").value(2));
     }
 
     @Test

@@ -21,7 +21,7 @@ public class Knowledge {
     private String excerpt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
+    @JoinColumn(name = "author_id", nullable = true)
     private User author;
 
     @Enumerated(EnumType.STRING)

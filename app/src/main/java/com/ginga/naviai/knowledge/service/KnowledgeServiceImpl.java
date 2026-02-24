@@ -3,21 +3,19 @@ package com.ginga.naviai.knowledge.service;
 import com.ginga.naviai.knowledge.dto.KnowledgeResponse;
 import com.ginga.naviai.knowledge.entity.Knowledge;
 import com.ginga.naviai.knowledge.repository.KnowledgeRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 @Service
 public class KnowledgeServiceImpl implements KnowledgeService {
 
-    @Autowired
-    private KnowledgeRepository knowledgeRepository;
+    private final KnowledgeRepository knowledgeRepository;
 
-    @Override
-    public Page<KnowledgeResponse> getMyKnowledge(Long userId, Pageable pageable) {
-        return getKnowledgeByAuthorId(userId, pageable);
+    public KnowledgeServiceImpl(KnowledgeRepository knowledgeRepository) {
+        this.knowledgeRepository = knowledgeRepository;
     }
 
     @Override
@@ -40,13 +38,9 @@ public class KnowledgeServiceImpl implements KnowledgeService {
             case DECLINED -> "差し戻し";
         };
 
-        String formattedDate = knowledge.getCreatedAt().toString();
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            formattedDate = formatter.format(knowledge.getCreatedAt());
-        } catch (Exception e) {
-            //
-        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                .withZone(ZoneId.of("Asia/Tokyo"));
+        String formattedDate = formatter.format(knowledge.getCreatedAt());
 
         return new KnowledgeResponse(
                 knowledge.getId().toString(),

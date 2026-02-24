@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ginga.naviai.knowledge.entity.Knowledge;
 import jakarta.persistence.CascadeType;
 
@@ -42,7 +43,8 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt = Instant.now();
 
-    @OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    @OneToMany(mappedBy = "author", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<Knowledge> knowledgeList = new ArrayList<>();
 
     public User() {}

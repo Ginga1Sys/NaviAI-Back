@@ -46,11 +46,30 @@
               - StrongPassword.java: パスワード強度チェック用のカスタム検証アノテーション。
               - StrongPasswordValidator.java: カスタムバリデータ。大文字・小文字・数字・記号のカテゴリ数を数え、3種以上かつ長さ >= 8 で有効と判定。
           - knowledge
+            - controller
+              - KnowledgeController.java: 記事検索結果一覧 API。`GET /api/v1/knowledge` でクエリパラメータ（q, sort, filter, page, size, tags）を受け取り、ページング済み記事一覧を返す。認証は SecurityConfig により必須。
+            - dto
+              - KnowledgeSearchRequest.java: 検索リクエストパラメータを保持する DTO（q, sort, filter, page, size, tags とバリデーション注釈）。
+              - KnowledgeItemDto.java: 記事1件を表す DTO（id, title, summary, author, createdAt, score, tags）。
+              - KnowledgePageResponse.java: ページング結果のラッパー DTO（page, size, totalElements, items）。
+            - service
+              - KnowledgeService.java: 記事検索サービスのインターフェース。
+              - KnowledgeServiceImpl.java: NamedParameterJdbcTemplate を用いて動的 SQL を構築し、全文検索・タグフィルタ・filter/sort 指定・ページングを実装。filter=recommended ではいいね数降順、filter=latest では作成日時降順（最大20件）で返す。
             - entity
               - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。
               - Tag.java: タグ情報のエンティティ。
             - repository
               - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）を含む。
+          - tags
+            - controller
+              - TagController.java: タグ一覧取得 API。`GET /api/v1/tags` でタグ名と利用件数（count）の配列を返す。
+            - dto
+              - TagResponse.java: タグ一覧の応答 DTO（name, count）。
+            - service
+              - TagService.java: タグ一覧取得サービスのインターフェース。
+              - TagServiceImpl.java: `tag` / `knowledge_tag` / `knowledge` を集計した結果を `TagResponse` に変換して返す実装。
+            - repository
+              - TagRepository.java: タグ利用件数をDB側で集計するクエリ（GROUP BY）を提供する JpaRepository。
           - dashboard
             - controller
               - DashboardController.java: ダッシュボード用 API。GET /api/v1/dashboard でサマリー情報を提供。
@@ -73,4 +92,4 @@
         - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
 
 
-> 生成日時: 2026-01-27
+> 生成日時: 2026-02-21（記事検索結果一覧取得API追加）

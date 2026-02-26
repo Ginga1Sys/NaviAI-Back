@@ -41,4 +41,14 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
     List<Object[]> findTopRecommendedArticles(@Param("limit") int limit);
 
     long countByCreatedAtBetweenAndDeletedFalse(Instant start, Instant end);
+
+    /**
+     * 指定期間内に作成された記事の作成日時一覧を1回のクエリで取得する。
+     * <p>
+     * 週次アクティビティ集計で N+1 問題を回避するために使用する。
+     * 期間を絞った上でアプリケーション側で週別に集計する。
+     * </p>
+     */
+    @Query("SELECT k.createdAt FROM Knowledge k WHERE k.deleted = false AND k.createdAt >= :start AND k.createdAt < :end")
+    List<Instant> findCreatedAtInRange(@Param("start") Instant start, @Param("end") Instant end);
 }

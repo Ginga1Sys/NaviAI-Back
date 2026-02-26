@@ -15,7 +15,6 @@ services:
       context: ./app
       dockerfile: Dockerfile.test
     working_dir: /workspace
-    user: root
     volumes:
       - ./app:/workspace:cached
     environment:
@@ -33,7 +32,6 @@ services:
       context: ./app
       dockerfile: Dockerfile.test
     working_dir: /workspace
-    user: root
     volumes:
       - ./app:/workspace:cached
     environment:

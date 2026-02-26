@@ -1,7 +1,6 @@
 package com.ginga.naviai.config;
 
 import com.ginga.naviai.auth.filter.JwtAuthenticationFilter;
-import com.ginga.naviai.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -22,10 +21,15 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(10);
     }
 
+    /**
+     * フィルターチェーン定義。
+     * JWT 検証は JwtAuthenticationFilter（auth/filter パッケージ）のみで行う。
+     * JwtAuthFilter（security パッケージ）は RBAC AOP サポート用のユーティリティであり、
+     * SecurityContext への Authentication 設定は JwtAuthenticationFilter に一本化する。
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtAuthenticationFilter jwtAuthenticationFilter,
-                                                   JwtAuthFilter jwtAuthFilter) throws Exception {
+                                                   JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -40,8 +44,6 @@ public class SecurityConfig {
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        // Additional JWT parsing/filtering (RBAC helper) - added by middleware task
-        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

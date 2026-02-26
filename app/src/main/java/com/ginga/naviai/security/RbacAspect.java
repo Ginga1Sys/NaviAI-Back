@@ -35,6 +35,7 @@ public class RbacAspect {
 
         Set<String> authorities = auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
+        // 評価ロジック: anyMatch（OR条件）—■指定ロールのうち少なくとも1つを保持していればアクセス許可。
         boolean ok = Arrays.stream(ann.value()).anyMatch(r -> authorities.contains(r) || authorities.contains("ROLE_" + r));
         if (!ok) throw new AccessDeniedException("Insufficient roles");
     }
@@ -53,6 +54,8 @@ public class RbacAspect {
 
         Set<String> authorities = auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
+        // 評価ロジック: allMatch（AND条件）—■指定パーミッションをすべて保持している場合のみアクセス許可。
+        // 布権限（ロール）は最低1つで十分だが、細かい機能アクセス制御は全機能を満たすことを要求するため、意図的に異なる評価方式を使用。
         boolean ok = Arrays.stream(ann.value()).allMatch(p -> authorities.contains(p));
         if (!ok) throw new AccessDeniedException("Insufficient permissions");
     }

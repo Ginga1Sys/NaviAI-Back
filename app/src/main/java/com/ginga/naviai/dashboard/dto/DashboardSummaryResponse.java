@@ -57,6 +57,7 @@ public class DashboardSummaryResponse {
     }
 
     @Data
+    @Builder
     @AllArgsConstructor
     @NoArgsConstructor
     public static class WeeklyActivity {

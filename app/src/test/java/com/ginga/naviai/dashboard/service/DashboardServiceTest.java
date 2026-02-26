@@ -21,6 +21,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
+/**
+ * DashboardServiceImpl の単体テスト。
+ * （旧 DashboardServiceImplTest を本クラスに統合）
+ */
 @ExtendWith(MockitoExtension.class)
 class DashboardServiceTest {
 
@@ -41,7 +45,7 @@ class DashboardServiceTest {
         when(knowledgeRepository.countByDeletedFalse()).thenReturn(100L);
         when(knowledgeRepository.countByCreatedAtAfterAndDeletedFalse(any(Instant.class))).thenReturn(10L);
         when(knowledgeRepository.countByStatusAndDeletedFalse("pending")).thenReturn(5L);
-        
+
         List<Object[]> topTags = new ArrayList<>();
         topTags.add(new Object[]{"AI", 50L});
         when(knowledgeRepository.findTopTags(5)).thenReturn(topTags);
@@ -49,11 +53,15 @@ class DashboardServiceTest {
         // 新着記事のモック（1件）
         Knowledge recent = Knowledge.builder().id(1L).title("新着記事").publishedAt(Instant.now()).build();
         when(knowledgeRepository.findRecentArticles(PageRequest.of(0, 5))).thenReturn(List.of(recent));
-        
+
         // おすすめ記事のモック（1件）
         List<Object[]> recommended = new ArrayList<>();
         recommended.add(new Object[]{2L, "おすすめ記事", "著者名", Timestamp.from(Instant.now()), 15L});
         when(knowledgeRepository.findTopRecommendedArticles(5)).thenReturn(recommended);
+
+        // 週次アクティビティ: findCreatedAtInRange で1クエリ取得
+        when(knowledgeRepository.findCreatedAtInRange(any(Instant.class), any(Instant.class)))
+                .thenReturn(Collections.emptyList());
 
         // Act: 実行
         DashboardSummaryResponse result = dashboardService.getSummary();
@@ -81,6 +89,8 @@ class DashboardServiceTest {
         when(knowledgeRepository.findTopTags(5)).thenReturn(Collections.emptyList());
         when(knowledgeRepository.findRecentArticles(any())).thenReturn(Collections.emptyList());
         when(knowledgeRepository.findTopRecommendedArticles(5)).thenReturn(Collections.emptyList());
+        when(knowledgeRepository.findCreatedAtInRange(any(Instant.class), any(Instant.class)))
+                .thenReturn(Collections.emptyList());
 
         // Act
         DashboardSummaryResponse result = dashboardService.getSummary();
@@ -90,6 +100,7 @@ class DashboardServiceTest {
         assertThat(result.getTopTags()).isEmpty();
         assertThat(result.getRecentArticles()).isEmpty();
         assertThat(result.getRecommendedArticles()).isEmpty();
+        assertThat(result.getWeeklyActivity()).hasSize(4);
     }
 
     /**
@@ -99,7 +110,7 @@ class DashboardServiceTest {
     void getSummary_ShouldHandleNullAuthorGracefully() {
         // Arrange: 著者が未設定のKnowledge
         Knowledge recent = Knowledge.builder().id(1L).title("著者なし記事").author(null).publishedAt(Instant.now()).build();
-        
+
         when(knowledgeRepository.findRecentArticles(any())).thenReturn(List.of(recent));
         // 他のモックは空で設定
         when(knowledgeRepository.countByDeletedFalse()).thenReturn(1L);
@@ -107,11 +118,42 @@ class DashboardServiceTest {
         when(knowledgeRepository.countByStatusAndDeletedFalse(any())).thenReturn(0L);
         when(knowledgeRepository.findTopTags(anyInt())).thenReturn(Collections.emptyList());
         when(knowledgeRepository.findTopRecommendedArticles(anyInt())).thenReturn(Collections.emptyList());
+        when(knowledgeRepository.findCreatedAtInRange(any(Instant.class), any(Instant.class)))
+                .thenReturn(Collections.emptyList());
 
         // Act
         DashboardSummaryResponse result = dashboardService.getSummary();
 
         // Assert
         assertThat(result.getRecentArticles().get(0).getAuthorDisplayName()).isEqualTo("不明");
+    }
+
+    /**
+     * 【正常系】週次アクティビティが1クエリで集計され、4週分のリストが返却されることを確認する。
+     * findCreatedAtInRange を1回だけ呼び出し、アプリ側で週ごとに集計する動作を検証する。
+     */
+    @Test
+    void getSummary_ShouldReturnWeeklyActivity_UsingBulkQuery() {
+        // Arrange
+        when(knowledgeRepository.countByDeletedFalse()).thenReturn(50L);
+        when(knowledgeRepository.countByCreatedAtAfterAndDeletedFalse(any(Instant.class))).thenReturn(5L);
+        when(knowledgeRepository.countByStatusAndDeletedFalse(any())).thenReturn(0L);
+        when(knowledgeRepository.findTopTags(5)).thenReturn(Collections.emptyList());
+        when(knowledgeRepository.findRecentArticles(any())).thenReturn(Collections.emptyList());
+        when(knowledgeRepository.findTopRecommendedArticles(5)).thenReturn(Collections.emptyList());
+
+        // 3週前と2週前に各1件ずつ作成されたと想定
+        Instant threeWeeksAgo = Instant.now().minusSeconds(3L * 7 * 24 * 60 * 60 - 100);
+        Instant twoWeeksAgo   = Instant.now().minusSeconds(2L * 7 * 24 * 60 * 60 - 100);
+        when(knowledgeRepository.findCreatedAtInRange(any(Instant.class), any(Instant.class)))
+                .thenReturn(List.of(threeWeeksAgo, twoWeeksAgo));
+
+        // Act
+        DashboardSummaryResponse result = dashboardService.getSummary();
+
+        // Assert: 4週分のリストが生成されること
+        assertThat(result.getWeeklyActivity()).hasSize(4);
+        // 各週の weekStart が null でないこと
+        result.getWeeklyActivity().forEach(wa -> assertThat(wa.getWeekStart()).isNotNull());
     }
 }

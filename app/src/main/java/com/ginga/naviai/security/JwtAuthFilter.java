@@ -7,36 +7,30 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
-@Component
+/**
+ * RBAC ヘルパー用 JWT フィルタ（Spring 管理 Bean 外）。
+ * <p>
+ * このクラスはセキュリティフィルタチェーンには登録しない。
+ * 実際の JWT 検証・SecurityContext 設定は JwtAuthenticationFilter が担当する。
+ * RbacAspect は SecurityContextHolder を直接参照するため、このクラスを Spring Bean にする必要はない。
+ * {@code @Component} を付与しないことで、@WebMvcTest 等のスライドテストで
+ * JwtUtils が未解決になる問題を回避する。
+ * </p>
+ */
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
 
-    // No-arg constructor to ensure bean creation when JwtUtils is not available
-    public JwtAuthFilter() {
-    }
-
-    // Optional constructor injection - Spring may use this when JwtUtils bean exists
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
     public JwtAuthFilter(JwtUtils jwtUtils) {
         this.jwtUtils = jwtUtils;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        if (jwtUtils == null) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);

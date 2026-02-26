@@ -59,8 +59,7 @@
               - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。
               - Tag.java: タグ情報のエンティティ。
             - repository
-<<<<<<< HEAD
-              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）を含む。
+              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）を含む。
           - tags
             - controller
               - TagController.java: タグ一覧取得 API。`GET /api/v1/tags` でタグ名と利用件数（count）の配列を返す。
@@ -71,9 +70,6 @@
               - TagServiceImpl.java: `tag` / `knowledge_tag` / `knowledge` を集計した結果を `TagResponse` に変換して返す実装。
             - repository
               - TagRepository.java: タグ利用件数をDB側で集計するクエリ（GROUP BY）を提供する JpaRepository。
-=======
-              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）を含む。
->>>>>>> 449698a12a5c723496231d8a953e4018699571da
           - dashboard
             - controller
               - DashboardController.java: ダッシュボード用 API。`GET /api/v1/dashboard` でサマリー情報、`GET /api/v1/dashboard/activity` で週次アクティビティを提供。適切な import を使用しており FQCN 記法は使用しない。
@@ -101,8 +97,4 @@
         - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
 
 
-<<<<<<< HEAD
 > 生成日時: 2026-02-21（記事検索結果一覧取得API追加）
-=======
-> 生成日時: 2026-02-26（レビュー指摘対応による更新）
->>>>>>> 449698a12a5c723496231d8a953e4018699571da

@@ -1,3 +1,7 @@
+# Environment variables (secret credentials)
+.env
+.env.*
+
 # Compiled class file
 *.class
 

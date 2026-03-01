@@ -28,6 +28,7 @@ public class SmtpMailService implements MailService {
     public static void setSimulateFailure(boolean fail) { simulateFailure = fail; }
     public static boolean isSimulateFailure() { return simulateFailure; }
 
+    @Autowired
     public SmtpMailService(Optional<JavaMailSender> mailSender) {
         if (mailSender == null) {
             this.mailSender = null;

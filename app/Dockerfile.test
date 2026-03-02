@@ -1,15 +1,13 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /workspace
 
-# Install Maven inside container (apt-based image)
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends maven ca-certificates \
-	&& rm -rf /var/lib/apt/lists/*
-
 # Copy project and run tests
 COPY . /workspace
 
-# Pre-build to download dependencies
-RUN mvn -B -f pom.xml -DskipTests package
+# Grant execute permission to gradlew
+RUN chmod +x gradlew
 
-CMD ["mvn", "-f", "pom.xml", "test"]
+# Pre-build to download dependencies
+RUN ./gradlew --no-daemon -x test build
+
+CMD ["./gradlew", "--no-daemon", "test"]

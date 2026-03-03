@@ -16,7 +16,7 @@
             - SmtpMailService.java: `MailService` 実装。`JavaMailSender` を使って `SimpleMailMessage` を送信する。`@Async` と `@Retryable` を使用し、送信失敗時のリカバリ処理とテスト用の `simulateFailure` フラグを備える。
           - auth
             - controller
-              - AuthController.java: 認証関連の REST API。`/register` でユーザー登録を受け付け、`/login` で認証（ユーザー名/メール + パスワード）を受け付けてトークンを返す。`/confirm` でメール確認トークンを検証してユーザーを有効化する処理を持つ。さらに `POST /api/v1/auth/refresh`（リフレッシュトークン交換）および `POST /api/v1/auth/logout`（ログアウト）エンドポイントが追加され、新しいアクセストークン発行やログアウト処理を提供する。
+              - AuthController.java: 認証関連の REST API。`/register` でユーザー登録を受け付け、`/login` で認証（ユーザー名/メール + パスワード）を受け付けてトークンを返す。`GET /confirm?token=...` はメール確認トークンを検証してユーザーを有効化し、成功時は `{app.frontend.base-url}/register/complete` へ、トークン無効の場合は `{app.frontend.base-url}/register/failed?reason=invalid` へ、期限切れの場合は `{app.frontend.base-url}/register/failed?reason=expired` へ HTTP 302 リダイレクトする。さらに `POST /api/v1/auth/refresh`（リフレッシュトークン交換）および `POST /api/v1/auth/logout`（ログアウト）エンドポイントが追加され、新しいアクセストークン発行やログアウト処理を提供する。
             - dto
               - UserResponse.java: クライアントへ返すユーザー情報の DTO（id, username, email, displayName, createdAt）。
               - RegisterRequest.java: 登録リクエストの DTO。バリデーション注釈（`@NotBlank`, `@Email`, `@Size`, ドメイン制限 `@Pattern`, カスタム `@StrongPassword`）を含む。
@@ -89,7 +89,7 @@
             - annotation/RequirePermissions.java: メソッド／クラス単位のパーミッションチェック用アノテーション（AND 評価）。
             - RbacAspect.java: AOP によるアノテーション前の権限チェック実装。`checkRoles` は anyMatch（OR）、`checkPermissions` は allMatch（AND）でそれぞれ評価する（意図的な仕様として実装内にコメントで明示）。
   - resources
-    - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。
+    - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。`app.frontend.base-url`（デフォルト: `http://localhost:3000`、環境変数 `FRONTEND_BASE_URL` で上書き可）を追加。
     - db
       - migration
         - V1__create_users_table.sql: `users` テーブル作成用のマイグレーション SQL（id, username, email, password_hash, display_name, enabled, created_at, updated_at を定義）。
@@ -97,4 +97,4 @@
         - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
 
 
-> 生成日時: 2026-02-21（記事検索結果一覧取得API追加）
+> 生成日時: 2026-03-01（会員登録確認エンドポイント修正：JSON レスポンスからフロントエンドへの HTTP 302 リダイレクトに変更、`app.frontend.base-url` プロパティ追加）

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.ArrayList;
@@ -66,7 +67,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .id(((Number) row[0]).longValue())
                 .title((String) row[1])
                 .authorDisplayName((String) row[2])
-                .publishedAt(row[3] != null ? ((Timestamp) row[3]).toInstant() : null)
+                .publishedAt(toInstant(row[3]))
                 .likeCount(((Number) row[4]).longValue())
                 .build())
             .collect(Collectors.toList());
@@ -151,5 +152,24 @@ public class DashboardServiceImpl implements DashboardService {
             }
             return m;
         });
+    }
+
+    private Instant toInstant(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof java.util.Date date) {
+            return date.toInstant();
+        }
+        throw new IllegalArgumentException("Unsupported datetime value type: " + value.getClass().getName());
     }
 }

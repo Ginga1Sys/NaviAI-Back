@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -101,13 +103,12 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         List<KnowledgeItemDto> items = rows.stream()
                 .map(row -> {
                     Long id = ((Number) row.get("id")).longValue();
-                    Timestamp ts = (Timestamp) row.get("created_at");
                     return KnowledgeItemDto.builder()
                             .id(id)
                             .title((String) row.get("title"))
                             .summary(buildSummary((String) row.get("body")))
                             .author((String) row.get("author"))
-                            .createdAt(ts != null ? ts.toInstant() : null)
+                    .createdAt(toInstant(row.get("created_at")))
                             .score(((Number) row.get("like_count")).longValue())
                             .tags(tagMap.getOrDefault(id, Collections.emptyList()))
                             .build();
@@ -190,5 +191,24 @@ public class KnowledgeServiceImpl implements KnowledgeService {
             tagMap.computeIfAbsent(kid, k -> new ArrayList<>()).add(name);
         }
         return tagMap;
+    }
+
+    private Instant toInstant(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof java.util.Date date) {
+            return date.toInstant();
+        }
+        throw new IllegalArgumentException("Unsupported datetime value type: " + value.getClass().getName());
     }
 }

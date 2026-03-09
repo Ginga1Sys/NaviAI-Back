@@ -39,7 +39,7 @@
               - ConfirmationTokenService.java: トークン生成（UUID）、有効期限設定、トークン検索、確認時刻の更新を行うサービス。
           - user
             - controller
-              - UserController.java: ユーザー情報取得 API（例: `GET /api/v1/users/me`）など、ユーザー関連の公開エンドポイントを提供。
+              - UserController.java: ユーザー情報取得 API（例: `GET /api/v1/users/me`）など、ユーザー関連の公開エンドポイントを提供。`/users/me` では `admin` フラグを返却し、`ROLE_ADMIN` が取得できない構成でも初期管理者ユーザー（`admin` / `admin@naviai.com`）をフォールバック判定する。
             - dto
               - UserProfileResponse.java: ユーザー情報応答用 DTO（id, username, email, displayName, createdAt 等）。
             - validation

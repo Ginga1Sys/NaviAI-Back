@@ -1,7 +1,85 @@
+<<<<<<< HEAD
 # Environment variables (secret credentials)
 .env
 .env.*
 
+=======
+# Gradle
+.gradle/
+/build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven
+/target/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# Eclipse
+.settings/
+*.classpath
+*.project
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# NetBeans
+nbproject/private/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+tmp/
+*.swp
+
+# Generated sources
+/generated/
+**/generated/
+
+# Test output
+test-output/
+coverage/
+
+# Docker
+.env
+.env.*
+docker-compose.override.yml
+
+# Misc
+*.keystore
+*.jks
+.idea/**/workspace.xml
+
+# Ignore IntelliJ run configs and local history
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# Keep gradle wrapper properties, allow wrapper jar to be committed
+/gradle/wrapper/gradle-wrapper.properties
+
+# Application specific
+/app/build/
+>>>>>>> 5d47b9eb2726dd901ea690b26acc02ada953711f
 # Compiled class file
 *.class
 

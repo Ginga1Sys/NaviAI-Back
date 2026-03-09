@@ -1,9 +1,7 @@
-<<<<<<< HEAD
 # Environment variables (secret credentials)
 .env
 .env.*
 
-=======
 # Gradle
 .gradle/
 /build/
@@ -79,7 +77,6 @@ docker-compose.override.yml
 
 # Application specific
 /app/build/
->>>>>>> 5d47b9eb2726dd901ea690b26acc02ada953711f
 # Compiled class file
 *.class
 

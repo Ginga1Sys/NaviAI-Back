@@ -33,9 +33,9 @@ public class KnowledgeController {
     @GetMapping
     public ResponseEntity<?> getKnowledge(
             @RequestParam(required = false) Boolean mine,
-            @RequestParam(required = false) Long author_id,
+            @RequestParam(name = "author_id", required = false) Long authorId,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int per_page,
+            @RequestParam(name = "per_page", defaultValue = "20") int perPage,
             @RequestParam(defaultValue = "createdAt") String sort,
             @AuthenticationPrincipal UserDetails userDetails) {
 
@@ -43,7 +43,11 @@ public class KnowledgeController {
             return ResponseEntity.badRequest().body("Invalid sort field. Allowed: " + ALLOWED_SORT_FIELDS);
         }
 
-        Pageable pageable = PageRequest.of(page - 1, per_page, Sort.by(sort).descending());
+        if (page < 1) {
+            return ResponseEntity.badRequest().body("page must be >= 1");
+        }
+
+        Pageable pageable = PageRequest.of(page - 1, perPage, Sort.by(sort).descending());
 
         Page<KnowledgeResponse> knowledgePage;
 
@@ -52,8 +56,11 @@ public class KnowledgeController {
                 return ResponseEntity.status(401).body("Unauthorized");
             }
             knowledgePage = knowledgeService.getMyKnowledgeByUsername(userDetails.getUsername(), pageable);
-        } else if (author_id != null) {
-            knowledgePage = knowledgeService.getKnowledgeByAuthorId(author_id, pageable);
+        } else if (authorId != null) {
+            if (userDetails == null) {
+                return ResponseEntity.status(401).body("Unauthorized");
+            }
+            knowledgePage = knowledgeService.getKnowledgeByAuthorId(authorId, pageable);
         } else {
             return ResponseEntity.badRequest().body("Either 'mine' or 'author_id' must be provided.");
         }

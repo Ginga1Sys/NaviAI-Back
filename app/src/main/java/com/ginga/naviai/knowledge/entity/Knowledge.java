@@ -2,119 +2,64 @@ package com.ginga.naviai.knowledge.entity;
 
 import com.ginga.naviai.auth.entity.User;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "knowledge")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Knowledge {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String title;
-
-    @Lob
-    private String body;
-
-    private String excerpt;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = true)
+    @JoinColumn(name = "author_id")
     private User author;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    private KnowledgeStatus status;
+    @Column(nullable = false, length = 500)
+    private String title;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(columnDefinition = "TEXT")
+    private String body;
+
+    @Column(nullable = false, length = 20)
+    private String status;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
 
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    @Column(length = 255)
+    private String excerpt;
+
+    @Column(length = 255)
     private String thumbnail;
 
-    public enum KnowledgeStatus {
-        DRAFT,
-        PENDING,
-        PUBLISHED,
-        DECLINED
-    }
-
-    public Knowledge() {}
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getBody() {
-        return body;
-    }
-
-    public void setBody(String body) {
-        this.body = body;
-    }
-
-    public String getExcerpt() {
-        return excerpt;
-    }
-
-    public void setExcerpt(String excerpt) {
-        this.excerpt = excerpt;
-    }
-
-    public User getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(User author) {
-        this.author = author;
-    }
-
-    public KnowledgeStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(KnowledgeStatus status) {
-        this.status = status;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getPublishedAt() {
-        return publishedAt;
-    }
-
-    public void setPublishedAt(Instant publishedAt) {
-        this.publishedAt = publishedAt;
-    }
-
-    public String getThumbnail() {
-        return thumbnail;
-    }
-
-    public void setThumbnail(String thumbnail) {
-        this.thumbnail = thumbnail;
-    }
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "knowledge_tag",
+        joinColumns = @JoinColumn(name = "knowledge_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags = new HashSet<>();
 }
+

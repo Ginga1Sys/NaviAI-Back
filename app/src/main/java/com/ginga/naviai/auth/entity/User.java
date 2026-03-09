@@ -43,6 +43,12 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt = Instant.now();
 
+    /**
+     * ユーザーが作成した Knowledge の一覧。
+     * ユーザー削除時に Knowledge を保持するため、CascadeType.REMOVE と
+     * orphanRemoval は意図的に設定しない。
+     * DB 側は ON DELETE SET NULL で author_id を NULL にすることで対応する。
+     */
     @JsonIgnore
     @OneToMany(mappedBy = "author", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<Knowledge> knowledgeList = new ArrayList<>();

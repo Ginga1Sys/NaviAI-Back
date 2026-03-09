@@ -32,10 +32,11 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     private KnowledgeResponse convertToKnowledgeResponse(Knowledge knowledge) {
         String statusLabel = switch (knowledge.getStatus()) {
-            case DRAFT -> "下書き";
-            case PENDING -> "レビュー中";
-            case PUBLISHED -> "公開";
-            case DECLINED -> "差し戻し";
+            case "draft" -> "下書き";
+            case "pending" -> "レビュー中";
+            case "published" -> "公開";
+            case "declined" -> "差し戻し";
+            default -> knowledge.getStatus();
         };
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")

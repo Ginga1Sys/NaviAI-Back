@@ -6,6 +6,7 @@ import com.ginga.naviai.dashboard.dto.DashboardSummaryResponse;
 import com.ginga.naviai.dashboard.repository.ActivityQueryConstants;
 import com.ginga.naviai.knowledge.entity.Knowledge;
 import com.ginga.naviai.knowledge.repository.KnowledgeRepository;
+import com.ginga.naviai.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -13,10 +14,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.ArrayList;
@@ -67,7 +66,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .id(((Number) row[0]).longValue())
                 .title((String) row[1])
                 .authorDisplayName((String) row[2])
-                .publishedAt(toInstant(row[3]))
+                .publishedAt(DateTimeUtils.toInstant(row[3]))
                 .likeCount(((Number) row[4]).longValue())
                 .build())
             .collect(Collectors.toList());
@@ -154,22 +153,4 @@ public class DashboardServiceImpl implements DashboardService {
         });
     }
 
-    private Instant toInstant(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Instant instant) {
-            return instant;
-        }
-        if (value instanceof OffsetDateTime offsetDateTime) {
-            return offsetDateTime.toInstant();
-        }
-        if (value instanceof Timestamp timestamp) {
-            return timestamp.toInstant();
-        }
-        if (value instanceof java.util.Date date) {
-            return date.toInstant();
-        }
-        throw new IllegalArgumentException("Unsupported datetime value type: " + value.getClass().getName());
-    }
 }

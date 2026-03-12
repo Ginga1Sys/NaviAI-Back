@@ -2,7 +2,6 @@ package com.ginga.naviai.mail;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.retry.annotation.Backoff;
@@ -10,9 +9,6 @@ import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.core.task.TaskExecutor;
-
-import java.util.concurrent.CompletableFuture;
 import java.util.Optional;
 
 @Service
@@ -28,23 +24,8 @@ public class SmtpMailService implements MailService {
     public static void setSimulateFailure(boolean fail) { simulateFailure = fail; }
     public static boolean isSimulateFailure() { return simulateFailure; }
 
-    @Autowired
     public SmtpMailService(Optional<JavaMailSender> mailSender) {
-        if (mailSender == null) {
-            this.mailSender = null;
-        } else {
-            this.mailSender = mailSender.orElse(null);
-        }
-    }
-
-    // Constructor accepting JavaMailSender directly to support Mockito constructor injection
-    public SmtpMailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
-
-    // No-arg constructor for test frameworks (Mockito @InjectMocks)
-    public SmtpMailService() {
-        this.mailSender = null;
+        this.mailSender = mailSender.orElse(null);
     }
 
     @Override

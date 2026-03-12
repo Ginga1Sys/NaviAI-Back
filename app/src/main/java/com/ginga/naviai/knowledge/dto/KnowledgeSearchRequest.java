@@ -16,7 +16,7 @@ public class KnowledgeSearchRequest {
 
     /**
      * ソート指定。省略可。
-     * 有効値: created_at（投稿日時降順）| -created_at（同上）| score（いいね数降順）
+      * 有効値: created_at（投稿日時昇順）| -created_at（投稿日時降順）| score（いいね数降順）
      */
     private String sort;
 

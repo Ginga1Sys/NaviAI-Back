@@ -123,7 +123,8 @@ public class AuthServiceImpl implements AuthService {
             String.valueOf(user.getId()),
             accessTokenJti,
             accessTokenExpiration,
-            tokenSecret
+            tokenSecret,
+            resolveRole(user)
         );
 
         // Generate and store refresh token
@@ -179,7 +180,8 @@ public class AuthServiceImpl implements AuthService {
             String.valueOf(user.getId()),
             newAccessTokenJti,
             accessTokenExpiration,
-            tokenSecret
+            tokenSecret,
+            resolveRole(user)
         );
 
         // Token rotation: generate new refresh token and revoke old one
@@ -232,5 +234,14 @@ public class AuthServiceImpl implements AuthService {
             // 簡易実装として全有効期限を使用）
             tokenBlacklistService.addToBlacklist(accessTokenJti.get(), accessTokenExpiration);
         }
+    }
+
+    private String resolveRole(User user) {
+        if (user == null) {
+            return "ROLE_USER";
+        }
+        boolean isAdmin = "admin".equalsIgnoreCase(user.getUsername())
+            || "admin@naviai.com".equalsIgnoreCase(user.getEmail());
+        return isAdmin ? "ROLE_ADMIN" : "ROLE_USER";
     }
 }

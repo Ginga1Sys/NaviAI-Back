@@ -30,4 +30,12 @@ public class UserServiceImpl implements UserService {
         res.setCreatedAt(user.getCreatedAt());
         return res;
     }
+
+    @Override
+    public boolean isAdmin(Long userId) {
+        return userRepository.findById(userId)
+            .map(user -> "admin".equalsIgnoreCase(user.getUsername())
+                || "admin@naviai.com".equalsIgnoreCase(user.getEmail()))
+            .orElse(false);
+    }
 }

@@ -1,13 +1,11 @@
-FROM eclipse-temurin:17-jdk
+FROM maven:3.9.9-eclipse-temurin-17
 WORKDIR /workspace
 
-# Copy project and run tests
+# Copy project
 COPY . /workspace
 
-# Grant execute permission to gradlew
-RUN chmod +x gradlew
+# Pre-download dependencies for faster container startup
+RUN mvn -B -DskipTests dependency:go-offline
 
-# Pre-build to download dependencies
-RUN ./gradlew --no-daemon -x test build
-
-CMD ["./gradlew", "--no-daemon", "test"]
+# Default command for test container usage
+CMD ["mvn", "-B", "test"]

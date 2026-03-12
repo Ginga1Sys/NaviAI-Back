@@ -37,10 +37,7 @@ public class UserController {
         UserResponse res = userService.getCurrentUser(userId);
         boolean isAdminByAuthority = authentication.getAuthorities().stream()
             .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
-        // 現状の JWT フィルタは ROLE_USER 固定のため、管理者初期ユーザーをフォールバック判定する。
-        boolean isAdminBySeedUser = "admin".equalsIgnoreCase(res.getUsername())
-            || "admin@naviai.com".equalsIgnoreCase(res.getEmail());
-        boolean isAdmin = isAdminByAuthority || isAdminBySeedUser;
+        boolean isAdmin = isAdminByAuthority || userService.isAdmin(userId);
         res.setAdmin(isAdmin);
         return ResponseEntity.ok(res);
     }

@@ -3,15 +3,14 @@ package com.ginga.naviai.knowledge.service;
 import com.ginga.naviai.knowledge.dto.KnowledgeItemDto;
 import com.ginga.naviai.knowledge.dto.KnowledgePageResponse;
 import com.ginga.naviai.knowledge.dto.KnowledgeSearchRequest;
+import com.ginga.naviai.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -108,7 +107,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
                             .title((String) row.get("title"))
                             .summary(buildSummary((String) row.get("body")))
                             .author((String) row.get("author"))
-                    .createdAt(toInstant(row.get("created_at")))
+                            .createdAt(DateTimeUtils.toInstant(row.get("created_at")))
                             .score(((Number) row.get("like_count")).longValue())
                             .tags(tagMap.getOrDefault(id, Collections.emptyList()))
                             .build();
@@ -133,7 +132,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     private String resolveOrderBy(KnowledgeSearchRequest request) {
         if (request.getSort() != null) {
             return switch (request.getSort()) {
-                case "created_at", "-created_at" -> "k.created_at DESC";
+                case "created_at" -> "k.created_at ASC";
+                case "-created_at" -> "k.created_at DESC";
                 case "score" -> "like_count DESC";
                 default -> "k.created_at DESC";
             };
@@ -193,22 +193,4 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         return tagMap;
     }
 
-    private Instant toInstant(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Instant instant) {
-            return instant;
-        }
-        if (value instanceof OffsetDateTime offsetDateTime) {
-            return offsetDateTime.toInstant();
-        }
-        if (value instanceof Timestamp timestamp) {
-            return timestamp.toInstant();
-        }
-        if (value instanceof java.util.Date date) {
-            return date.toInstant();
-        }
-        throw new IllegalArgumentException("Unsupported datetime value type: " + value.getClass().getName());
-    }
 }

@@ -115,10 +115,10 @@ class KnowledgeServiceTest {
 
     /**
      * 【正常系】sort=created_at の場合、データクエリの SQL に
-     * "k.created_at DESC" が含まれること。
+     * "k.created_at ASC" が含まれること。
      */
     @Test
-    void search_withSortCreatedAt_usesCreatedAtDescOrder() {
+    void search_withSortCreatedAt_usesCreatedAtAscOrder() {
         stubCount(0L);
         stubEmptyDataRows();
 
@@ -131,9 +131,9 @@ class KnowledgeServiceTest {
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForList(sqlCaptor.capture(), any(SqlParameterSource.class));
 
-        // SQL に ORDER BY k.created_at DESC が含まれること（並び順の検証）
-        assertTrue(sqlCaptor.getValue().contains("k.created_at DESC"),
-                "sort=created_at のとき ORDER BY k.created_at DESC が使われること");
+        // SQL に ORDER BY k.created_at ASC が含まれること（並び順の検証）
+        assertTrue(sqlCaptor.getValue().contains("k.created_at ASC"),
+            "sort=created_at のとき ORDER BY k.created_at ASC が使われること");
     }
 
     /**
@@ -188,7 +188,7 @@ class KnowledgeServiceTest {
     /**
      * 【正常系】sort パラメータ（score）は filter より優先されること。
      * filter=recommended かつ sort=score → like_count DESC（変わらないが確認）。
-     * filter=recommended かつ sort=created_at → k.created_at DESC に上書きされること。
+        * filter=recommended かつ sort=created_at → k.created_at ASC に上書きされること。
      */
     @Test
     void search_sortOverridesFilter() {
@@ -204,8 +204,8 @@ class KnowledgeServiceTest {
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).queryForList(sqlCaptor.capture(), any(SqlParameterSource.class));
 
-        // sort=created_at の場合、filter=recommended の like_count DESC より created_at DESC が優先
-        assertTrue(sqlCaptor.getValue().contains("k.created_at DESC"),
+        // sort=created_at の場合、filter=recommended の like_count DESC より created_at ASC が優先
+        assertTrue(sqlCaptor.getValue().contains("k.created_at ASC"),
                 "sort パラメータが filter より優先されること");
     }
 

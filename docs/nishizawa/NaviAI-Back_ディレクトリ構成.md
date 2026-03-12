@@ -10,7 +10,7 @@
           - NaviAiBackApplication.java: Spring Boot アプリケーションのエントリポイント（main メソッドで起動）。
           - config
             - AsyncRetryConfig.java: 非同期実行とリトライを有効化する設定。`mailTaskExecutor`（ThreadPoolTaskExecutor）を定義。
-            - SecurityConfig.java: パスワードハッシュ用の `BCryptPasswordEncoder` Bean を提供（強度 10）。
+            - SecurityConfig.java: `BCryptPasswordEncoder` Bean を提供（強度 10）。JWT 認証フィルターは `JwtAuthenticationFilter` のみをフィルタチェーンに登録し、二重登録を防止している。
           - mail
             - MailService.java: メール送信の抽象インターフェース（`send` メソッド）。
             - SmtpMailService.java: `MailService` 実装。`JavaMailSender` を使って `SimpleMailMessage` を送信する。`@Async` と `@Retryable` を使用し、送信失敗時のリカバリ処理とテスト用の `simulateFailure` フラグを備える。
@@ -45,11 +45,37 @@
             - validation
               - StrongPassword.java: パスワード強度チェック用のカスタム検証アノテーション。
               - StrongPasswordValidator.java: カスタムバリデータ。大文字・小文字・数字・記号のカテゴリ数を数え、3種以上かつ長さ >= 8 で有効と判定。
+          - knowledge
+            - entity
+              - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。
+              - Tag.java: タグ情報のエンティティ。
+            - repository
+              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）を含む。
+          - dashboard
+            - controller
+              - DashboardController.java: ダッシュボード用 API。`GET /api/v1/dashboard` でサマリー情報、`GET /api/v1/dashboard/activity` で週次アクティビティを提供。適切な import を使用しており FQCN 記法は使用しない。
+            - dto
+              - DashboardSummaryResponse.java: ダッシュボードの統計情報（投稿総数、週間投稿数、承認待ち数、人気タグ、新着記事、おすすめ記事、週次アクティビティ）を返す DTO。内部クラス `WeeklyActivity`・`ArticleSummary`・`TagSummary` はすべて `@Builder` を付与。
+              - ActivityResponse.java: アクティビティ期間データ（from/to/range/items）を返す DTO。
+              - ActivityDayItem.java: 1日分のアクティビティ（date/posts/comments/likes）を表す DTO。
+            - repository
+              - ActivityQueryConstants.java: `getActivity` で使用するネイティブ SQL（投稿/コメント/いいねの日別集計）を定数として集約するユーティリティクラス。`comment` テーブル・`like` テーブルは JPA エンティティ化されていないため、SQL はここで一元管理する。
+            - service
+              - DashboardService.java: ダッシュボードサービスのインターフェース（`getSummary`, `getActivity`）。
+              - DashboardServiceImpl.java: 記事リポジトリと `NamedParameterJdbcTemplate` を利用してダッシュボード用データを集計・構築する実装。週次アクティビティは `findCreatedAtInRange` で一括取得しアプリ側で集計することで N+1 問題を回避する。アクティビティ SQL は `ActivityQueryConstants` から参照する。`recentArticles` の `likeCount` はクエリコスト削減のため 0 固定（仕様）。
+          - security
+            - JwtUtils.java: JWT 検証・Claims 取得ユーティリティ。トークン検証、`Authentication` 生成を行う。
+            - JwtAuthFilter.java: RBAC AOP サポート用コンポーネント。フィルタチェーンには登録せず `RbacAspect` がアノテーション権限チェックを行う際の `JwtUtils` を提供する目的で保持。コンストラクタインジェクションに統一し、フィールドインジェクションとの二重定義を解消。
+            - annotation/RequireRoles.java: メソッド／クラス単位のロールチェック用アノテーション（OR 評価）。
+            - annotation/RequirePermissions.java: メソッド／クラス単位のパーミッションチェック用アノテーション（AND 評価）。
+            - RbacAspect.java: AOP によるアノテーション前の権限チェック実装。`checkRoles` は anyMatch（OR）、`checkPermissions` は allMatch（AND）でそれぞれ評価する（意図的な仕様として実装内にコメントで明示）。
   - resources
     - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。
     - db
       - migration
         - V1__create_users_table.sql: `users` テーブル作成用のマイグレーション SQL（id, username, email, password_hash, display_name, enabled, created_at, updated_at を定義）。
+        - V2__create_refresh_tokens_table.sql: リフレッシュトークン管理用のテーブル定義。
+        - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
 
 
-> 生成日時: 2026-01-27
+> 生成日時: 2026-02-26（レビュー指摘対応による更新）

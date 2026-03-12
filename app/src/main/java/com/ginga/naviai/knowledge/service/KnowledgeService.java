@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 package com.ginga.naviai.knowledge.service;
 
 import com.ginga.naviai.knowledge.dto.KnowledgePageResponse;
@@ -17,15 +16,3 @@ public interface KnowledgeService {
      */
     KnowledgePageResponse search(KnowledgeSearchRequest request);
 }
-=======
-package com.ginga.naviai.knowledge.service;
-
-import com.ginga.naviai.knowledge.dto.KnowledgeResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
-public interface KnowledgeService {
-    Page<KnowledgeResponse> getMyKnowledgeByUsername(String username, Pageable pageable);
-    Page<KnowledgeResponse> getKnowledgeByAuthorId(Long authorId, Pageable pageable);
-}
->>>>>>> 4d0036690621c93b680f4a1863ad2e8a4f3d0c24

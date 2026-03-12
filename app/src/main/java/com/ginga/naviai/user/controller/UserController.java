@@ -35,8 +35,9 @@ public class UserController {
         }
 
         UserResponse res = userService.getCurrentUser(userId);
-        boolean isAdmin = authentication.getAuthorities().stream()
+        boolean isAdminByAuthority = authentication.getAuthorities().stream()
             .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        boolean isAdmin = isAdminByAuthority || userService.isAdmin(userId);
         res.setAdmin(isAdmin);
         return ResponseEntity.ok(res);
     }

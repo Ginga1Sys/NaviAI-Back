@@ -6,6 +6,7 @@ import com.ginga.naviai.dashboard.dto.DashboardSummaryResponse;
 import com.ginga.naviai.dashboard.repository.ActivityQueryConstants;
 import com.ginga.naviai.knowledge.entity.Knowledge;
 import com.ginga.naviai.knowledge.repository.KnowledgeRepository;
+import com.ginga.naviai.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -13,7 +14,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -66,7 +66,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .id(((Number) row[0]).longValue())
                 .title((String) row[1])
                 .authorDisplayName((String) row[2])
-                .publishedAt(row[3] != null ? ((Timestamp) row[3]).toInstant() : null)
+                .publishedAt(DateTimeUtils.toInstant(row[3]))
                 .likeCount(((Number) row[4]).longValue())
                 .build())
             .collect(Collectors.toList());
@@ -152,4 +152,5 @@ public class DashboardServiceImpl implements DashboardService {
             return m;
         });
     }
+
 }

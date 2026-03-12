@@ -17,12 +17,17 @@ public class JwtTokenUtil {
     }
 
     public static String generateAccessToken(String subject, String jti, long expirationSeconds, String secret) {
+        return generateAccessToken(subject, jti, expirationSeconds, secret, "ROLE_USER");
+    }
+
+    public static String generateAccessToken(String subject, String jti, long expirationSeconds, String secret, String role) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(expirationSeconds);
 
         return Jwts.builder()
             .setSubject(subject)
             .setId(jti)
+            .claim("role", role)
             .setIssuedAt(Date.from(now))
             .setExpiration(Date.from(expiresAt))
             .signWith(getSigningKey(secret), SignatureAlgorithm.HS256)

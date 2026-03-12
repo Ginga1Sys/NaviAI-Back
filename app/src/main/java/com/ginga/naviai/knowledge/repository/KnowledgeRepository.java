@@ -36,7 +36,7 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
                    "LEFT JOIN users u ON k.author_id = u.id " +
                    "LEFT JOIN \"like\" l ON k.id = l.knowledge_id " +
                    "WHERE k.status = 'published' AND k.is_deleted = false " +
-                   "GROUP BY k.id, u.display_name " +
+                   "GROUP BY k.id, k.title, k.published_at, u.display_name " +
                    "ORDER BY like_count DESC, k.published_at DESC " +
                    "LIMIT :limit", nativeQuery = true)
     List<Object[]> findTopRecommendedArticles(@Param("limit") int limit);
@@ -57,4 +57,3 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
 
     Page<Knowledge> findByAuthorUsername(String username, Pageable pageable);
 }
-

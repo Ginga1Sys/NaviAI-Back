@@ -1,3 +1,7 @@
+# Environment variables (secret credentials)
+.env
+.env.*
+
 # Gradle
 .gradle/
 /build/

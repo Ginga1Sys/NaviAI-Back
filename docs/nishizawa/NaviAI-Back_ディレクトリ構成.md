@@ -16,7 +16,7 @@
             - SmtpMailService.java: `MailService` 実装。`JavaMailSender` を使って `SimpleMailMessage` を送信する。`@Async` と `@Retryable` を使用し、送信失敗時のリカバリ処理とテスト用の `simulateFailure` フラグを備える。
           - auth
             - controller
-              - AuthController.java: 認証関連の REST API。`/register` でユーザー登録を受け付け、`/login` で認証（ユーザー名/メール + パスワード）を受け付けてトークンを返す。`/confirm` でメール確認トークンを検証してユーザーを有効化する処理を持つ。さらに `POST /api/v1/auth/refresh`（リフレッシュトークン交換）および `POST /api/v1/auth/logout`（ログアウト）エンドポイントが追加され、新しいアクセストークン発行やログアウト処理を提供する。
+              - AuthController.java: 認証関連の REST API。`/register` でユーザー登録を受け付け、`/login` で認証（ユーザー名/メール + パスワード）を受け付けてトークンを返す。`GET /confirm?token=...` はメール確認トークンを検証してユーザーを有効化し、成功時は `{app.frontend.base-url}/register/complete` へ、トークン無効の場合は `{app.frontend.base-url}/register/failed?reason=invalid` へ、期限切れの場合は `{app.frontend.base-url}/register/failed?reason=expired` へ HTTP 302 リダイレクトする。さらに `POST /api/v1/auth/refresh`（リフレッシュトークン交換）および `POST /api/v1/auth/logout`（ログアウト）エンドポイントが追加され、新しいアクセストークン発行やログアウト処理を提供する。
             - dto
               - UserResponse.java: クライアントへ返すユーザー情報の DTO（id, username, email, displayName, createdAt）。
               - RegisterRequest.java: 登録リクエストの DTO。バリデーション注釈（`@NotBlank`, `@Email`, `@Size`, ドメイン制限 `@Pattern`, カスタム `@StrongPassword`）を含む。
@@ -39,18 +39,37 @@
               - ConfirmationTokenService.java: トークン生成（UUID）、有効期限設定、トークン検索、確認時刻の更新を行うサービス。
           - user
             - controller
-              - UserController.java: ユーザー情報取得 API（例: `GET /api/v1/users/me`）など、ユーザー関連の公開エンドポイントを提供。
+              - UserController.java: ユーザー情報取得 API（例: `GET /api/v1/users/me`）など、ユーザー関連の公開エンドポイントを提供。`/users/me` では `admin` フラグを返却し、`ROLE_ADMIN` が取得できない構成でも初期管理者ユーザー（`admin` / `admin@naviai.com`）をフォールバック判定する。
             - dto
               - UserProfileResponse.java: ユーザー情報応答用 DTO（id, username, email, displayName, createdAt 等）。
             - validation
               - StrongPassword.java: パスワード強度チェック用のカスタム検証アノテーション。
               - StrongPasswordValidator.java: カスタムバリデータ。大文字・小文字・数字・記号のカテゴリ数を数え、3種以上かつ長さ >= 8 で有効と判定。
           - knowledge
+            - controller
+              - KnowledgeController.java: 記事検索結果一覧 API。`GET /api/v1/knowledge` でクエリパラメータ（q, sort, filter, page, size, tags）を受け取り、ページング済み記事一覧を返す。認証は SecurityConfig により必須。
+            - dto
+              - KnowledgeSearchRequest.java: 検索リクエストパラメータを保持する DTO（q, sort, filter, page, size, tags とバリデーション注釈）。
+              - KnowledgeItemDto.java: 記事1件を表す DTO（id, title, summary, author, createdAt, score, tags）。
+              - KnowledgePageResponse.java: ページング結果のラッパー DTO（page, size, totalElements, items）。
+            - service
+              - KnowledgeService.java: 記事検索サービスのインターフェース。
+              - KnowledgeServiceImpl.java: NamedParameterJdbcTemplate を用いて動的 SQL を構築し、全文検索・タグフィルタ・filter/sort 指定・ページングを実装。filter=recommended ではいいね数降順、filter=latest では作成日時降順（最大20件）で返す。
             - entity
               - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。
               - Tag.java: タグ情報のエンティティ。
             - repository
               - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）を含む。
+          - tags
+            - controller
+              - TagController.java: タグ一覧取得 API。`GET /api/v1/tags` でタグ名と利用件数（count）の配列を返す。
+            - dto
+              - TagResponse.java: タグ一覧の応答 DTO（name, count）。
+            - service
+              - TagService.java: タグ一覧取得サービスのインターフェース。
+              - TagServiceImpl.java: `tag` / `knowledge_tag` / `knowledge` を集計した結果を `TagResponse` に変換して返す実装。
+            - repository
+              - TagRepository.java: タグ利用件数をDB側で集計するクエリ（GROUP BY）を提供する JpaRepository。
           - dashboard
             - controller
               - DashboardController.java: ダッシュボード用 API。`GET /api/v1/dashboard` でサマリー情報、`GET /api/v1/dashboard/activity` で週次アクティビティを提供。適切な import を使用しており FQCN 記法は使用しない。
@@ -70,7 +89,7 @@
             - annotation/RequirePermissions.java: メソッド／クラス単位のパーミッションチェック用アノテーション（AND 評価）。
             - RbacAspect.java: AOP によるアノテーション前の権限チェック実装。`checkRoles` は anyMatch（OR）、`checkPermissions` は allMatch（AND）でそれぞれ評価する（意図的な仕様として実装内にコメントで明示）。
   - resources
-    - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。
+    - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。`app.frontend.base-url`（デフォルト: `http://localhost:3000`、環境変数 `FRONTEND_BASE_URL` で上書き可）を追加。
     - db
       - migration
         - V1__create_users_table.sql: `users` テーブル作成用のマイグレーション SQL（id, username, email, password_hash, display_name, enabled, created_at, updated_at を定義）。
@@ -78,4 +97,4 @@
         - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
 
 
-> 生成日時: 2026-02-26（レビュー指摘対応による更新）
+> 生成日時: 2026-03-01（会員登録確認エンドポイント修正：JSON レスポンスからフロントエンドへの HTTP 302 リダイレクトに変更、`app.frontend.base-url` プロパティ追加）

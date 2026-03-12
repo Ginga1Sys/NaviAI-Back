@@ -9,6 +9,8 @@ import com.ginga.naviai.auth.dto.TokenResponse;
 import com.ginga.naviai.auth.dto.LogoutRequest;
 import com.ginga.naviai.auth.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -24,6 +26,7 @@ import com.ginga.naviai.auth.entity.ConfirmationToken;
 import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.auth.entity.User;
 import org.springframework.transaction.annotation.Transactional;
+import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +41,9 @@ public class AuthController {
     private final AuthService authService;
     private final ConfirmationTokenService tokenService;
     private final UserRepository userRepository;
+
+    @Value("${app.frontend.base-url:http://localhost:3000}")
+    private String frontendBaseUrl;
 
     @Autowired
     public AuthController(AuthService authService, ConfirmationTokenService tokenService, UserRepository userRepository) {
@@ -69,21 +75,30 @@ public class AuthController {
     public ResponseEntity<?> confirmEmail(@RequestParam("token") String token) {
         Optional<ConfirmationToken> opt = tokenService.findByToken(token);
         if (opt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid token");
+            HttpHeaders headers = new HttpHeaders();
+            headers.setLocation(URI.create(frontendBaseUrl + "/register/failed?reason=invalid"));
+            return new ResponseEntity<>(headers, HttpStatus.FOUND);
         }
         ConfirmationToken ct = opt.get();
         if (ct.getConfirmedAt() != null) {
-            return ResponseEntity.ok("already confirmed");
+            // すでに確認済みの場合も完了ページにリダイレクト
+            HttpHeaders headers = new HttpHeaders();
+            headers.setLocation(URI.create(frontendBaseUrl + "/register/complete"));
+            return new ResponseEntity<>(headers, HttpStatus.FOUND);
         }
         if (ct.getExpiresAt().isBefore(Instant.now())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("token expired");
+            HttpHeaders headers = new HttpHeaders();
+            headers.setLocation(URI.create(frontendBaseUrl + "/register/failed?reason=expired"));
+            return new ResponseEntity<>(headers, HttpStatus.FOUND);
         }
         tokenService.setConfirmedAt(ct, Instant.now());
-        // enable user and persist
+        // ユーザーを有効化して保存
         User u = ct.getUser();
         u.setEnabled(true);
         userRepository.save(u);
-        return ResponseEntity.ok("confirmed");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(URI.create(frontendBaseUrl + "/register/complete"));
+        return new ResponseEntity<>(headers, HttpStatus.FOUND);
     }
 
     /**

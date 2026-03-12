@@ -5,8 +5,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.ginga.naviai.knowledge.entity.Knowledge;
+import jakarta.persistence.CascadeType;
 
 @Entity
 @Table(name = "users")
@@ -37,6 +43,16 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt = Instant.now();
 
+    /**
+     * ユーザーが作成した Knowledge の一覧。
+     * ユーザー削除時に Knowledge を保持するため、CascadeType.REMOVE と
+     * orphanRemoval は意図的に設定しない。
+     * DB 側は ON DELETE SET NULL で author_id を NULL にすることで対応する。
+     */
+    @JsonIgnore
+    @OneToMany(mappedBy = "author", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    private List<Knowledge> knowledgeList = new ArrayList<>();
+
     public User() {}
 
     public Long getId() { return id; }
@@ -55,4 +71,12 @@ public class User {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public List<Knowledge> getKnowledgeList() {
+        return knowledgeList;
+    }
+
+    public void setKnowledgeList(List<Knowledge> knowledgeList) {
+        this.knowledgeList = knowledgeList;
+    }
 }

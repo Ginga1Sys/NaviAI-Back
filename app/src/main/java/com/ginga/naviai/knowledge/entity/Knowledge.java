@@ -48,6 +48,12 @@ public class Knowledge {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    @Column(length = 255)
+    private String excerpt;
+
+    @Column(length = 255)
+    private String thumbnail;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "knowledge_tag",
@@ -56,3 +62,4 @@ public class Knowledge {
     )
     private Set<Tag> tags = new HashSet<>();
 }
+

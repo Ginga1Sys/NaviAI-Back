@@ -1,6 +1,7 @@
 package com.ginga.naviai.knowledge.repository;
 
 import com.ginga.naviai.knowledge.entity.Knowledge;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -51,4 +52,9 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
      */
     @Query("SELECT k.createdAt FROM Knowledge k WHERE k.deleted = false AND k.createdAt >= :start AND k.createdAt < :end")
     List<Instant> findCreatedAtInRange(@Param("start") Instant start, @Param("end") Instant end);
+
+    Page<Knowledge> findByAuthorId(Long authorId, Pageable pageable);
+
+    Page<Knowledge> findByAuthorUsername(String username, Pageable pageable);
 }
+

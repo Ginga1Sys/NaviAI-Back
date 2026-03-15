@@ -48,28 +48,35 @@
           - knowledge
             - controller
               - KnowledgeController.java: 記事検索結果一覧 API。`GET /api/v1/knowledge` でクエリパラメータ（q, sort, filter, page, size, tags）を受け取り、ページング済み記事一覧を返す。認証は SecurityConfig により必須。
+              - PublicKnowledgeController.java: 公開トップ画面（SCR-12）向けの認証不要 API。`GET /api/v1/public/knowledge` で visibility=public かつ status=published かつ未削除の記事をページング返却する。`GET /api/v1/public/knowledge/recommended?limit=1` で非公開記事（visibility=private）からおすすめ（いいね数上位）を返却する。
             - dto
               - KnowledgeSearchRequest.java: 検索リクエストパラメータを保持する DTO（q, sort, filter, page, size, tags とバリデーション注釈）。
               - KnowledgeItemDto.java: 記事1件を表す DTO（id, title, summary, author, createdAt, score, tags）。
               - KnowledgePageResponse.java: ページング結果のラッパー DTO（page, size, totalElements, items）。
+              - PublicKnowledgeItemDto.java: 公開トップ画面向けの記事 DTO（id, title, excerpt, thumbnail, authorDisplayName, publishedAt, tags）。
+              - PublicKnowledgePageResponse.java: 公開記事のページング結果 DTO（page, size, totalElements, items）。
+              - PublicRecommendedKnowledgeItemDto.java: 公開トップ画面の「今週の注目」向けDTO（id, title, likeCount）。
+              - PublicRecommendedKnowledgeResponse.java: おすすめ記事レスポンス DTO（items）。
             - service
               - KnowledgeService.java: 記事検索サービスのインターフェース。
               - KnowledgeServiceImpl.java: NamedParameterJdbcTemplate を用いて動的 SQL を構築し、全文検索・タグフィルタ・filter/sort 指定・ページングを実装。filter=recommended ではいいね数降順、filter=latest では作成日時降順（最大20件）で返す。
+              - PublicKnowledgeService.java: 公開記事取得サービスのインターフェース（`getPublicKnowledge`, `getRecommendedKnowledge`）。
+              - PublicKnowledgeServiceImpl.java: `KnowledgeRepository.findPublicKnowledge` を呼び出し、公開記事を `PublicKnowledgeItemDto` に変換して返す。`findTopRecommendedArticlesAll` を利用して非公開記事から「今週の注目」向けおすすめ記事を返す実装。
             - entity
-              - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。
+              - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。`visibility` フィールド（VARCHAR(32)、デフォルト `'private'`）を含む。
               - Tag.java: タグ情報のエンティティ。
             - repository
-              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）を含む。
+              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）、公開記事取得用の `findPublicKnowledge`（visibility=public かつ status=published かつ未削除）、おすすめ取得用の `findTopRecommendedArticlesAll`（非公開記事をいいね数降順）を含む。
           - tags
             - controller
-              - TagController.java: タグ一覧取得 API。`GET /api/v1/tags` でタグ名と利用件数（count）の配列を返す。
+              - TagController.java: タグ一覧取得 API。`GET /api/v1/tags`（認証必須）でタグ名と利用件数の配列を返す。`GET /api/v1/public/tags`（認証不要）で公開記事に紐づくタグのみ返す。
             - dto
               - TagResponse.java: タグ一覧の応答 DTO（name, count）。
             - service
-              - TagService.java: タグ一覧取得サービスのインターフェース。
-              - TagServiceImpl.java: `tag` / `knowledge_tag` / `knowledge` を集計した結果を `TagResponse` に変換して返す実装。
+              - TagService.java: タグ一覧取得サービスのインターフェース（`getAllTags`, `getPublicTags`）。
+              - TagServiceImpl.java: `tag` / `knowledge_tag` / `knowledge` を集計した結果を `TagResponse` に変換して返す実装。`getAllTags` は全公開済み記事対象、`getPublicTags` は visibility=public 限定。
             - repository
-              - TagRepository.java: タグ利用件数をDB側で集計するクエリ（GROUP BY）を提供する JpaRepository。
+              - TagRepository.java: タグ利用件数をDB側で集計するクエリ（GROUP BY）を提供する JpaRepository。`findTagUsageCounts`（全公開済み）と `findPublicTagUsageCounts`（visibility=public 限定）を持つ。
           - dashboard
             - controller
               - DashboardController.java: ダッシュボード用 API。`GET /api/v1/dashboard` でサマリー情報、`GET /api/v1/dashboard/activity` で週次アクティビティを提供。適切な import を使用しており FQCN 記法は使用しない。
@@ -90,11 +97,13 @@
             - RbacAspect.java: AOP によるアノテーション前の権限チェック実装。`checkRoles` は anyMatch（OR）、`checkPermissions` は allMatch（AND）でそれぞれ評価する（意図的な仕様として実装内にコメントで明示）。
   - resources
     - application.properties: H2 インメモリ DB の接続設定、JPA 設定（ddl-auto=update）、ログレベル、H2 コンソール有効化などの環境設定。`app.frontend.base-url`（デフォルト: `http://localhost:3000`、環境変数 `FRONTEND_BASE_URL` で上書き可）を追加。
+    - data.sql: ローカル開発用の初期データ（ユーザー、タグ、記事、いいね）を投入するシード SQL。公開トップ（SCR-12）検証用の公開記事3件といいねデータを含む。
     - db
       - migration
         - V1__create_users_table.sql: `users` テーブル作成用のマイグレーション SQL（id, username, email, password_hash, display_name, enabled, created_at, updated_at を定義）。
         - V2__create_refresh_tokens_table.sql: リフレッシュトークン管理用のテーブル定義。
-        - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。
+        - V3__create_knowledge_and_tag_tables.sql: 記事（knowledge）、タグ（tag）、および関連テーブル（knowledge_tag）、コメント（comment）、いいね（like）を作成するマイグレーション SQL。`knowledge` テーブルには `visibility` カラム（VARCHAR(32)、NOT NULL、DEFAULT 'private'）を含む。公開トップ画面（SCR-12）で公開範囲を管理するために使用。
+        - V4__add_excerpt_thumbnail_to_knowledge.sql: `knowledge` テーブルに `excerpt` と `thumbnail` カラムを追加するマイグレーション SQL。
 
 
-> 生成日時: 2026-03-01（会員登録確認エンドポイント修正：JSON レスポンスからフロントエンドへの HTTP 302 リダイレクトに変更、`app.frontend.base-url` プロパティ追加）
+> 生成日時: 2026-03-13（公開トップ画面 SCR-12 対応: visibility カラム追加、PublicKnowledgeController/Service/DTO 追加、公開タグAPI追加、SecurityConfig に `/api/v1/public/**` の permitAll 追加）（会員登録確認エンドポイント修正：JSON レスポンスからフロントエンドへの HTTP 302 リダイレクトに変更、`app.frontend.base-url` プロパティ追加）

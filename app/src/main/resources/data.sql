@@ -410,3 +410,139 @@ WHERE k.title = 'LangChainでプロンプトチェーンを組み業務自動化
 
 -- 投稿10: 0いいね（いいねなし）
 
+-- ============================================================
+-- 公開トップ（SCR-12）検証用: 公開記事3件
+-- ============================================================
+INSERT INTO knowledge (author_id, title, body, status, visibility, is_deleted, published_at, created_at, updated_at)
+SELECT
+    (SELECT id FROM users WHERE username = 'tanaka_taro'),
+    '公開トップ検証用記事 A',
+    '公開トップ画面の今週の注目と新着表示を検証するための記事Aです。',
+    'published',
+    'public',
+    FALSE,
+    NOW() - INTERVAL '1' DAY,
+    NOW() - INTERVAL '1' DAY,
+    NOW() - INTERVAL '1' DAY
+WHERE NOT EXISTS (SELECT 1 FROM knowledge WHERE title = '公開トップ検証用記事 A');
+
+INSERT INTO knowledge (author_id, title, body, status, visibility, is_deleted, published_at, created_at, updated_at)
+SELECT
+    (SELECT id FROM users WHERE username = 'suzuki_hanako'),
+    '公開トップ検証用記事 B',
+    '公開トップ画面の新着2件表示を検証するための記事Bです。',
+    'published',
+    'public',
+    FALSE,
+    NOW() - INTERVAL '2' DAY,
+    NOW() - INTERVAL '2' DAY,
+    NOW() - INTERVAL '2' DAY
+WHERE NOT EXISTS (SELECT 1 FROM knowledge WHERE title = '公開トップ検証用記事 B');
+
+INSERT INTO knowledge (author_id, title, body, status, visibility, is_deleted, published_at, created_at, updated_at)
+SELECT
+    (SELECT id FROM users WHERE username = 'yamada_ken'),
+    '公開トップ検証用記事 C',
+    '公開トップ画面の公開記事一覧を検証するための記事Cです。',
+    'published',
+    'public',
+    FALSE,
+    NOW() - INTERVAL '3' DAY,
+    NOW() - INTERVAL '3' DAY,
+    NOW() - INTERVAL '3' DAY
+WHERE NOT EXISTS (SELECT 1 FROM knowledge WHERE title = '公開トップ検証用記事 C');
+
+-- 検証用記事A: 5いいね
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 A' AND u.username = 'admin'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 A' AND u.username = 'tanaka_taro'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 A' AND u.username = 'suzuki_hanako'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 A' AND u.username = 'yamada_ken'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 A' AND u.username = 'ito_yuki'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+-- 検証用記事B: 4いいね
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 B' AND u.username = 'admin'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 B' AND u.username = 'tanaka_taro'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 B' AND u.username = 'suzuki_hanako'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 B' AND u.username = 'ito_yuki'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+-- 検証用記事C: 3いいね
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 C' AND u.username = 'admin'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 C' AND u.username = 'tanaka_taro'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+INSERT INTO "like" (knowledge_id, user_id)
+SELECT k.id, u.id FROM knowledge k, users u
+WHERE k.title = '公開トップ検証用記事 C' AND u.username = 'yamada_ken'
+  AND NOT EXISTS (SELECT 1 FROM "like" l WHERE l.knowledge_id = k.id AND l.user_id = u.id);
+
+-- 公開トップ検証用記事のタグ紐付け
+INSERT INTO knowledge_tag (knowledge_id, tag_id)
+SELECT k.id, t.id FROM knowledge k, tag t
+WHERE k.title = '公開トップ検証用記事 A' AND t.name = 'ChatGPT'
+  AND NOT EXISTS (SELECT 1 FROM knowledge_tag kt WHERE kt.knowledge_id = k.id AND kt.tag_id = t.id);
+
+INSERT INTO knowledge_tag (knowledge_id, tag_id)
+SELECT k.id, t.id FROM knowledge k, tag t
+WHERE k.title = '公開トップ検証用記事 A' AND t.name = '業務効率化'
+  AND NOT EXISTS (SELECT 1 FROM knowledge_tag kt WHERE kt.knowledge_id = k.id AND kt.tag_id = t.id);
+
+INSERT INTO knowledge_tag (knowledge_id, tag_id)
+SELECT k.id, t.id FROM knowledge k, tag t
+WHERE k.title = '公開トップ検証用記事 B' AND t.name = 'Python'
+  AND NOT EXISTS (SELECT 1 FROM knowledge_tag kt WHERE kt.knowledge_id = k.id AND kt.tag_id = t.id);
+
+INSERT INTO knowledge_tag (knowledge_id, tag_id)
+SELECT k.id, t.id FROM knowledge k, tag t
+WHERE k.title = '公開トップ検証用記事 B' AND t.name = 'データ分析'
+  AND NOT EXISTS (SELECT 1 FROM knowledge_tag kt WHERE kt.knowledge_id = k.id AND kt.tag_id = t.id);
+
+INSERT INTO knowledge_tag (knowledge_id, tag_id)
+SELECT k.id, t.id FROM knowledge k, tag t
+WHERE k.title = '公開トップ検証用記事 C' AND t.name = '画像生成AI'
+  AND NOT EXISTS (SELECT 1 FROM knowledge_tag kt WHERE kt.knowledge_id = k.id AND kt.tag_id = t.id);
+
+INSERT INTO knowledge_tag (knowledge_id, tag_id)
+SELECT k.id, t.id FROM knowledge k, tag t
+WHERE k.title = '公開トップ検証用記事 C' AND t.name = 'プロンプトエンジニアリング'
+  AND NOT EXISTS (SELECT 1 FROM knowledge_tag kt WHERE kt.knowledge_id = k.id AND kt.tag_id = t.id);
+

@@ -24,4 +24,15 @@ public class TagServiceImpl implements TagService {
                         .build())
                 .toList();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TagResponse> getPublicTags() {
+        return tagRepository.findPublicTagUsageCounts().stream()
+                .map(row -> TagResponse.builder()
+                        .name(row.getName())
+                        .count(row.getCount())
+                        .build())
+                .toList();
+    }
 }

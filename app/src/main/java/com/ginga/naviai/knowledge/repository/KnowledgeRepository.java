@@ -41,6 +41,19 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
                    "LIMIT :limit", nativeQuery = true)
     List<Object[]> findTopRecommendedArticles(@Param("limit") int limit);
 
+    /**
+     * 公開トップ画面の「今週の注目」向け。
+     * 非公開記事（visibility=private）のみを、いいね数の多い順で取得する。
+     */
+    @Query(value = "SELECT k.id, k.title, COUNT(l.id) as like_count " +
+                   "FROM knowledge k " +
+                   "LEFT JOIN \"like\" l ON k.id = l.knowledge_id " +
+                   "WHERE k.is_deleted = false AND k.status = 'published' AND k.visibility = 'private' " +
+                   "GROUP BY k.id, k.title " +
+                   "ORDER BY like_count DESC, k.created_at DESC " +
+                   "LIMIT :limit", nativeQuery = true)
+    List<Object[]> findTopRecommendedArticlesAll(@Param("limit") int limit);
+
     long countByCreatedAtBetweenAndDeletedFalse(Instant start, Instant end);
 
     /**
@@ -56,4 +69,11 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
     Page<Knowledge> findByAuthorId(Long authorId, Pageable pageable);
 
     Page<Knowledge> findByAuthorUsername(String username, Pageable pageable);
+
+    /**
+     * 公開記事（visibility=public かつ status=published かつ未削除）をページ取得する。
+     * SCR-12 公開トップ画面向け。認証不要エンドポイントから呼ばれる。
+     */
+    @Query("SELECT k FROM Knowledge k WHERE k.visibility = 'public' AND k.status = 'published' AND k.deleted = false ORDER BY k.publishedAt DESC")
+    Page<Knowledge> findPublicKnowledge(Pageable pageable);
 }

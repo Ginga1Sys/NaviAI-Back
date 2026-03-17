@@ -1,6 +1,7 @@
 package com.ginga.naviai.auth.dto;
 
 import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class UserResponse {
     private Long id;
@@ -8,6 +9,7 @@ public class UserResponse {
     private String email;
     private String displayName;
     private Instant createdAt;
+    private boolean admin;
 
     public UserResponse() {}
 
@@ -21,4 +23,6 @@ public class UserResponse {
     public void setDisplayName(String displayName) { this.displayName = displayName; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public boolean isAdmin() { return admin; }
+    public void setAdmin(boolean admin) { this.admin = admin; }
 }

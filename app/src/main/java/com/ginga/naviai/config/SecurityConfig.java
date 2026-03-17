@@ -21,6 +21,12 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(10);
     }
 
+    /**
+     * フィルターチェーン定義。
+     * JWT 検証は JwtAuthenticationFilter（auth/filter パッケージ）のみで行う。
+     * JwtAuthFilter（security パッケージ）は RBAC AOP サポート用のユーティリティであり、
+     * SecurityContext への Authentication 設定は JwtAuthenticationFilter に一本化する。
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {

@@ -23,7 +23,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    command: mvn -f pom.xml -DskipTests spring-boot:run
+    command: ./gradlew --no-daemon -x test bootRun
     ports:
       - "8080:8080"
 
@@ -41,7 +41,7 @@ services:
       - backend-app
       - redis
     # run tests and exit
-    command: mvn -f pom.xml test
+    command: ./gradlew --no-daemon test
 
   # e2e-tests:
   #   build:

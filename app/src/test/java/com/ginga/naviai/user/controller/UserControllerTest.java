@@ -80,8 +80,32 @@ public class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.username").value("testuser"))
-                .andExpect(jsonPath("$.displayName").value("Test User"))
-                .andExpect(jsonPath("$.createdAt").value("2026-02-07T10:20:30Z"));
+                        .andExpect(jsonPath("$.displayName").value("Test User"))
+                        .andExpect(jsonPath("$.createdAt").value("2026-02-07T10:20:30Z"))
+                        .andExpect(jsonPath("$.admin").value(false));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @WithMockUser(username = "1", roles = {"ADMIN"})
+    void getCurrentUser_admin_returnsIsAdminTrue() throws Exception {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken("1", null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        UserResponse res = new UserResponse();
+        res.setId(1L);
+        res.setUsername("adminuser");
+        res.setEmail("admin@ginga.info");
+        res.setDisplayName("Admin User");
+        res.setCreatedAt(java.time.Instant.parse("2026-02-07T10:20:30Z"));
+
+        when(userService.getCurrentUser(1L)).thenReturn(res);
+        try {
+            mockMvc.perform(get("/api/v1/users/me").with(authentication(auth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.username").value("adminuser"))
+                .andExpect(jsonPath("$.admin").value(true));
         } finally {
             SecurityContextHolder.clearContext();
         }

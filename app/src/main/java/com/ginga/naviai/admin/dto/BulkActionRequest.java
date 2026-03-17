@@ -1,11 +1,11 @@
 package com.ginga.naviai.admin.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public class BulkActionRequest {
-    @NotNull
+    @NotBlank
     private String action; // approve | reject
     @NotEmpty
     private List<String> ids;

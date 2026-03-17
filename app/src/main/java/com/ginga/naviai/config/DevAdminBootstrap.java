@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import java.util.Optional;
  * This is intended for local/dev use only and should not be used in production.
  */
 @Component
+@Profile("dev")
 public class DevAdminBootstrap implements ApplicationRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(DevAdminBootstrap.class);

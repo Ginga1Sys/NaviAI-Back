@@ -17,14 +17,22 @@ public class JwtTokenUtil {
     }
 
     public static String generateAccessToken(String subject, String jti, long expirationSeconds, String secret) {
+        return generateAccessToken(subject, jti, null, expirationSeconds, secret);
+    }
+
+    public static String generateAccessToken(String subject, String jti, String role, long expirationSeconds, String secret) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(expirationSeconds);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
             .setSubject(subject)
             .setId(jti)
             .setIssuedAt(Date.from(now))
-            .setExpiration(Date.from(expiresAt))
+            .setExpiration(Date.from(expiresAt));
+        if (role != null) {
+            builder.claim("role", role);
+        }
+        return builder
             .signWith(getSigningKey(secret), SignatureAlgorithm.HS256)
             .compact();
     }

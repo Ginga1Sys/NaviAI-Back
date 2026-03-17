@@ -1,7 +1,6 @@
 package com.ginga.naviai.admin.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonProperty.Access;
 import java.time.Instant;
 
 public class UserListResponse {

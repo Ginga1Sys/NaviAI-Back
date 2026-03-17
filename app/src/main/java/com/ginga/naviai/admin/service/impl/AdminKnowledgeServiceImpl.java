@@ -21,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,17 +40,20 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final AdminKnowledgeService self;
 
     public AdminKnowledgeServiceImpl(KnowledgeRepository knowledgeRepository,
                                     KnowledgeModerationRepository moderationRepository,
                                     AuditLogRepository auditLogRepository,
                                     UserRepository userRepository,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    @Lazy AdminKnowledgeService self) {
         this.knowledgeRepository = knowledgeRepository;
         this.moderationRepository = moderationRepository;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.self = self;
     }
 
     @Override
@@ -204,9 +208,9 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
             item.setId(id);
             try {
                 if (action.equals("approve")) {
-                    approve(id, null);
+                    self.approve(id, null);
                 } else {
-                    reject(id, req.getReason());
+                    self.reject(id, req.getReason());
                 }
                 item.setOk(true);
                 ok++;
@@ -279,9 +283,9 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     public StatsResponse stats(String from, String to) {
         Specification<Knowledge> dateSpec = createdAtBetween(from, to);
         StatsResponse s = new StatsResponse();
-        s.setPending((int) knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.PENDING)).and(dateSpec)));
-        s.setPublished((int) knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.PUBLISHED)).and(dateSpec)));
-        s.setDeclined((int) knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.DECLINED)).and(dateSpec)));
+        s.setPending(knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.PENDING)).and(dateSpec)));
+        s.setPublished(knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.PUBLISHED)).and(dateSpec)));
+        s.setDeclined(knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.DECLINED)).and(dateSpec)));
         return s;
     }
 

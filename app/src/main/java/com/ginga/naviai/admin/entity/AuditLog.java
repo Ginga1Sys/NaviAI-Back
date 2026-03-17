@@ -5,13 +5,18 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.springframework.data.domain.Persistable;
+
 @Entity
 @Table(name = "audit_log")
-public class AuditLog {
+public class AuditLog implements Persistable<String> {
 
     @Id
     @Column(length = 36)
     private String id;
+
+    @Transient
+    private boolean isNew = true;
 
     @Column(nullable = false, length = 80)
     private String action;
@@ -41,6 +46,17 @@ public class AuditLog {
     public void onCreate() {
         if (id == null || id.isBlank()) id = UUID.randomUUID().toString();
         if (createdAt == null) createdAt = Instant.now();
+    }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() {
+        this.isNew = false;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
     }
 
     public String getId() { return id; }

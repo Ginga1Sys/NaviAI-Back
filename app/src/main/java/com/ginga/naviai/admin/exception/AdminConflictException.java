@@ -4,6 +4,10 @@ import org.springframework.http.HttpStatus;
 
 public class AdminConflictException extends AdminApiException {
     public AdminConflictException(String message) {
-        super(HttpStatus.CONFLICT, "INVALID_STATUS_TRANSITION", message);
+        this("INVALID_STATUS_TRANSITION", message);
+    }
+
+    public AdminConflictException(String code, String message) {
+        super(HttpStatus.CONFLICT, code, message);
     }
 }

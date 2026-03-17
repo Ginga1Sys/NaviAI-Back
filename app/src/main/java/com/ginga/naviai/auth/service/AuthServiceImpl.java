@@ -124,6 +124,7 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = JwtTokenUtil.generateAccessToken(
             String.valueOf(user.getId()),
             accessTokenJti,
+            user.getRole().name(),
             accessTokenExpiration,
             tokenSecret
         );
@@ -180,6 +181,7 @@ public class AuthServiceImpl implements AuthService {
         String newAccessToken = JwtTokenUtil.generateAccessToken(
             String.valueOf(user.getId()),
             newAccessTokenJti,
+            user.getRole().name(),
             accessTokenExpiration,
             tokenSecret
         );

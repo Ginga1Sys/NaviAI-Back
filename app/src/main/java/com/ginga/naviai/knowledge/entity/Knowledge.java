@@ -36,6 +36,9 @@ public class Knowledge {
     @Column(nullable = false, length = 20)
     private String status;
 
+    @Column(length = 100)
+    private String category;
+
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted = false;
 
@@ -45,8 +48,14 @@ public class Knowledge {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
     @Column(name = "published_at")
     private Instant publishedAt;
+
+    @Column(name = "declined_reason", length = 2000)
+    private String declinedReason;
 
     @Column(length = 255)
     private String excerpt;
@@ -62,4 +71,3 @@ public class Knowledge {
     )
     private Set<Tag> tags = new HashSet<>();
 }
-

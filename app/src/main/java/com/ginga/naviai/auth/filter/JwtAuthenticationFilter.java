@@ -1,6 +1,7 @@
 package com.ginga.naviai.auth.filter;
 
 import com.ginga.naviai.auth.service.TokenBlacklistService;
+import com.ginga.naviai.auth.entity.UserRole;
 import com.ginga.naviai.auth.util.JwtTokenUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,6 +22,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * JWT 認証フィルタ
@@ -85,11 +87,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                // Resolve role from JWT claim (no DB access needed)
+                String roleClaim = claims.get("role", String.class);
+                UserRole role = null;
+                if (roleClaim != null) {
+                    try {
+                        role = UserRole.valueOf(roleClaim);
+                    } catch (IllegalArgumentException ignored) {
+                    }
+                }
+
+                List<SimpleGrantedAuthority> authorities;
+                if (role == UserRole.ADMIN) {
+                    authorities = List.of(
+                        new SimpleGrantedAuthority("ROLE_ADMIN"),
+                        new SimpleGrantedAuthority("ROLE_USER")
+                    );
+                } else if (role == UserRole.MODERATOR) {
+                    authorities = List.of(
+                        new SimpleGrantedAuthority("ROLE_MODERATOR"),
+                        new SimpleGrantedAuthority("ROLE_USER")
+                    );
+                } else {
+                    authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+                }
+
                 UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                         subject,
                         null,
-                        java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                        authorities
                     );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

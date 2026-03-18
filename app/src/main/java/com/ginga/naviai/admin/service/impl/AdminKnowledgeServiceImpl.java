@@ -13,7 +13,7 @@ import com.ginga.naviai.admin.service.AdminKnowledgeService;
 import com.ginga.naviai.auth.entity.User;
 import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.knowledge.entity.Knowledge;
-import com.ginga.naviai.knowledge.entity.KnowledgeStatus;
+import com.ginga.naviai.knowledge.entity.Tag;
 import com.ginga.naviai.knowledge.repository.KnowledgeRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
@@ -60,8 +60,7 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     @Transactional(readOnly = true)
     public PagedResponse<KnowledgeSummaryResponse> list(String status, String q, String authorId, String tag, String from, String to,
                                                        Integer page, Integer perPage, String sort) {
-        KnowledgeStatus st = KnowledgeStatus.fromApiValue(status);
-        if (st == null) st = KnowledgeStatus.PENDING;
+        String st = (status != null && !status.isBlank()) ? status.trim().toLowerCase(Locale.ROOT) : "pending";
 
         Pageable pageable = PageRequest.of(Math.max(0, (page != null ? page : 1) - 1),
                 clampPerPage(perPage),
@@ -80,17 +79,18 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
         List<KnowledgeSummaryResponse> data = new ArrayList<>();
         for (Knowledge k : result.getContent()) {
             KnowledgeSummaryResponse r = new KnowledgeSummaryResponse();
-            r.setId(k.getId());
+            r.setId(String.valueOf(k.getId()));
             r.setTitle(k.getTitle());
             r.setSummary(excerpt(k.getBody(), 120));
-            r.setStatus(k.getStatus().toApiValue());
+            r.setStatus(k.getStatus());
             r.setCategory(k.getCategory());
             r.setSubmittedAt(k.getSubmittedAt());
 
-            User u = usersById.get(k.getAuthorId());
+            Long authorIdVal = k.getAuthor() != null ? k.getAuthor().getId() : null;
+            User u = authorIdVal != null ? usersById.get(authorIdVal) : null;
             UserBrief ub = new UserBrief();
-            ub.setId(String.valueOf(k.getAuthorId()));
-            ub.setName(u != null ? displayName(u) : String.valueOf(k.getAuthorId()));
+            ub.setId(authorIdVal != null ? String.valueOf(authorIdVal) : "0");
+            ub.setName(u != null ? displayName(u) : (authorIdVal != null ? String.valueOf(authorIdVal) : "unknown"));
             r.setAuthor(ub);
 
             data.add(r);
@@ -109,24 +109,27 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     @Override
     @Transactional(readOnly = true)
     public KnowledgeDetailResponse getDetail(String id) {
-        Knowledge k = knowledgeRepository.findById(id)
+        Knowledge k = knowledgeRepository.findById(Long.valueOf(id))
             .orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
 
         KnowledgeDetailResponse r = new KnowledgeDetailResponse();
-        r.setId(k.getId());
+        r.setId(String.valueOf(k.getId()));
         r.setTitle(k.getTitle());
         r.setBody(k.getBody());
-        r.setStatus(k.getStatus().toApiValue());
-        r.setTags(k.getTags());
+        r.setStatus(k.getStatus());
+        r.setTags(k.getTags().stream().map(Tag::getName).toList());
         r.setCategory(k.getCategory());
         r.setCreatedAt(k.getCreatedAt());
         r.setUpdatedAt(k.getUpdatedAt());
         r.setSubmittedAt(k.getSubmittedAt());
 
+        Long authorIdVal = k.getAuthor() != null ? k.getAuthor().getId() : null;
         UserBrief ub = new UserBrief();
-        ub.setId(String.valueOf(k.getAuthorId()));
-        userRepository.findById(k.getAuthorId()).ifPresent(u -> ub.setName(displayName(u)));
-        if (ub.getName() == null) ub.setName(String.valueOf(k.getAuthorId()));
+        ub.setId(authorIdVal != null ? String.valueOf(authorIdVal) : "0");
+        if (authorIdVal != null) {
+            userRepository.findById(authorIdVal).ifPresent(u -> ub.setName(displayName(u)));
+        }
+        if (ub.getName() == null) ub.setName(authorIdVal != null ? String.valueOf(authorIdVal) : "unknown");
         r.setAuthor(ub);
         return r;
     }
@@ -134,23 +137,23 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     @Override
     @Transactional
     public SimpleStatusResponse approve(String id, String note) {
-        Knowledge k = knowledgeRepository.findById(id)
+        Knowledge k = knowledgeRepository.findById(Long.valueOf(id))
                 .orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
-        if (k.getStatus() != KnowledgeStatus.PENDING) {
+        if (!"pending".equals(k.getStatus())) {
             throw new AdminConflictException("Only pending knowledge can be approved");
         }
-        k.setStatus(KnowledgeStatus.PUBLISHED);
+        k.setStatus("published");
         k.setPublishedAt(Instant.now());
         knowledgeRepository.save(k);
 
-        writeAudit("KNOWLEDGE_APPROVED", "knowledge", k.getId(), Map.of(
+        writeAudit("KNOWLEDGE_APPROVED", "knowledge", String.valueOf(k.getId()), Map.of(
                 "title", k.getTitle(),
                 "note", note
         ));
 
         SimpleStatusResponse r = new SimpleStatusResponse();
-        r.setId(k.getId());
-        r.setStatus(k.getStatus().toApiValue());
+        r.setId(String.valueOf(k.getId()));
+        r.setStatus(k.getStatus());
         r.setPublishedAt(k.getPublishedAt() != null ? k.getPublishedAt().toString() : null);
         return r;
     }
@@ -161,23 +164,23 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
         if (reason == null || reason.trim().isEmpty()) {
             throw new AdminBadRequestException("reason is required", Map.of("reason", "must not be blank"));
         }
-        Knowledge k = knowledgeRepository.findById(id)
+        Knowledge k = knowledgeRepository.findById(Long.valueOf(id))
                 .orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
-        if (k.getStatus() != KnowledgeStatus.PENDING) {
+        if (!"pending".equals(k.getStatus())) {
             throw new AdminConflictException("Only pending knowledge can be rejected");
         }
-        k.setStatus(KnowledgeStatus.DECLINED);
+        k.setStatus("declined");
         k.setDeclinedReason(reason);
         knowledgeRepository.save(k);
 
-        writeAudit("KNOWLEDGE_REJECTED", "knowledge", k.getId(), Map.of(
+        writeAudit("KNOWLEDGE_REJECTED", "knowledge", String.valueOf(k.getId()), Map.of(
                 "title", k.getTitle(),
                 "reason", reason
         ));
 
         SimpleStatusResponse r = new SimpleStatusResponse();
-        r.setId(k.getId());
-        r.setStatus(k.getStatus().toApiValue());
+        r.setId(String.valueOf(k.getId()));
+        r.setStatus(k.getStatus());
         return r;
     }
 
@@ -238,7 +241,7 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     @Override
     @Transactional(readOnly = true)
     public ModerationResponse getModeration(String id) {
-        knowledgeRepository.findById(id).orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
+        knowledgeRepository.findById(Long.valueOf(id)).orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
         KnowledgeModeration m = moderationRepository.findById(id)
             .orElseThrow(() -> new AdminNotFoundException("Moderation not found"));
         ModerationResponse r = new ModerationResponse();
@@ -262,7 +265,7 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     @Override
     @Transactional
     public ModerationResponse updateModeration(String id, ModerationRequest req) {
-        knowledgeRepository.findById(id).orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
+        knowledgeRepository.findById(Long.valueOf(id)).orElseThrow(() -> new AdminNotFoundException("Knowledge not found"));
         KnowledgeModeration m = moderationRepository.findById(id).orElseGet(KnowledgeModeration::new);
         m.setKnowledgeId(id);
         m.setInternalNote(req.getInternalNote());
@@ -283,9 +286,9 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     public StatsResponse stats(String from, String to) {
         Specification<Knowledge> dateSpec = createdAtBetween(from, to);
         StatsResponse s = new StatsResponse();
-        s.setPending(knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.PENDING)).and(dateSpec)));
-        s.setPublished(knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.PUBLISHED)).and(dateSpec)));
-        s.setDeclined(knowledgeRepository.count(Specification.where(statusEq(KnowledgeStatus.DECLINED)).and(dateSpec)));
+        s.setPending(knowledgeRepository.count(Specification.where(statusEq("pending")).and(dateSpec)));
+        s.setPublished(knowledgeRepository.count(Specification.where(statusEq("published")).and(dateSpec)));
+        s.setDeclined(knowledgeRepository.count(Specification.where(statusEq("declined")).and(dateSpec)));
         return s;
     }
 
@@ -307,7 +310,7 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
         };
     }
 
-    private Specification<Knowledge> statusEq(KnowledgeStatus status) {
+    private Specification<Knowledge> statusEq(String status) {
         return (root, query, cb) -> cb.equal(root.get("status"), status);
     }
 
@@ -324,7 +327,7 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
         if (authorId == null || authorId.isBlank()) return null;
         try {
             Long id = Long.valueOf(authorId.trim());
-            return (root, query, cb) -> cb.equal(root.get("authorId"), id);
+            return (root, query, cb) -> cb.equal(root.get("author").get("id"), id);
         } catch (NumberFormatException ex) {
             throw new AdminBadRequestException("author_id must be a number");
         }
@@ -334,8 +337,8 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
         if (tag == null || tag.isBlank()) return null;
         return (root, query, cb) -> {
             query.distinct(true);
-            Join<Object, Object> join = root.join("tags", JoinType.LEFT);
-            return cb.equal(join, tag.trim());
+            Join<Knowledge, Tag> join = root.join("tags", JoinType.LEFT);
+            return cb.equal(join.get("name"), tag.trim());
         };
     }
 
@@ -366,7 +369,7 @@ public class AdminKnowledgeServiceImpl implements AdminKnowledgeService {
     private Map<Long, User> loadUsers(List<Knowledge> knowledgeList) {
         Set<Long> ids = new HashSet<>();
         for (Knowledge k : knowledgeList) {
-            if (k.getAuthorId() != null) ids.add(k.getAuthorId());
+            if (k.getAuthor() != null && k.getAuthor().getId() != null) ids.add(k.getAuthor().getId());
         }
         Map<Long, User> map = new HashMap<>();
         if (ids.isEmpty()) return map;

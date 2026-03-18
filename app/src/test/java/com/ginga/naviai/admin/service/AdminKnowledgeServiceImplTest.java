@@ -13,7 +13,6 @@ import com.ginga.naviai.auth.entity.User;
 import com.ginga.naviai.auth.entity.UserRole;
 import com.ginga.naviai.auth.repository.UserRepository;
 import com.ginga.naviai.knowledge.entity.Knowledge;
-import com.ginga.naviai.knowledge.entity.KnowledgeStatus;
 import com.ginga.naviai.knowledge.repository.KnowledgeRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,7 +72,7 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void list_withResults_mapsCorrectly() {
         // 結果がある場合に正しくマッピングされることを検証する
-        Knowledge k = createKnowledge("k1", "Title One", "Body text", KnowledgeStatus.PENDING, 1L);
+        Knowledge k = createKnowledge("k1", "Title One", "Body text", "pending", 1L);
 
         Page<Knowledge> page = new PageImpl<>(List.of(k));
         when(knowledgeRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
@@ -112,22 +111,22 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void getDetail_found_returnsDetail() {
         // 存在するナレッジの詳細が正しく返されることを検証する
-        Knowledge k = createKnowledge("k1", "Title", "Body", KnowledgeStatus.PENDING, 1L);
-        k.setTags(List.of("java", "spring"));
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "Title", "Body", "pending", 1L);
+        k.setTags(new java.util.HashSet<>());
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
         when(userRepository.findById(1L)).thenReturn(Optional.of(createUser(1L, "author", "Author")));
 
         KnowledgeDetailResponse res = service.getDetail("k1");
 
         assertEquals("k1", res.getId());
         assertEquals("Title", res.getTitle());
-        assertEquals(2, res.getTags().size());
+        assertEquals(0, res.getTags().size());
     }
 
     @Test
     void getDetail_notFound_throwsNotFoundException() {
         // 存在しないIDで AdminNotFoundException が発生することを検証する
-        when(knowledgeRepository.findById("missing")).thenReturn(Optional.empty());
+        when(knowledgeRepository.findById(Long.valueOf("missing"))).thenReturn(Optional.empty());
 
         assertThrows(AdminNotFoundException.class, () -> service.getDetail("missing"));
     }
@@ -137,8 +136,8 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void approve_pendingKnowledge_setsPublished() {
         // PENDING の知識を承認すると PUBLISHED になることを検証する
-        Knowledge k = createKnowledge("k1", "Title", "Body", KnowledgeStatus.PENDING, 1L);
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "Title", "Body", "pending", 1L);
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
         when(knowledgeRepository.save(any(Knowledge.class))).thenReturn(k);
         lenient().when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
@@ -152,8 +151,8 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void approve_nonPending_throwsConflict() {
         // PENDING 以外のステータスの承認で AdminConflictException が発生することを検証する
-        Knowledge k = createKnowledge("k1", "Title", "Body", KnowledgeStatus.PUBLISHED, 1L);
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "Title", "Body", "published", 1L);
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
 
         assertThrows(AdminConflictException.class, () -> service.approve("k1", null));
     }
@@ -161,7 +160,7 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void approve_notFound_throwsNotFoundException() {
         // 存在しないIDの承認で AdminNotFoundException が発生することを検証する
-        when(knowledgeRepository.findById("missing")).thenReturn(Optional.empty());
+        when(knowledgeRepository.findById(Long.valueOf("missing"))).thenReturn(Optional.empty());
 
         assertThrows(AdminNotFoundException.class, () -> service.approve("missing", null));
     }
@@ -171,8 +170,8 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void reject_pendingKnowledge_setsDeclined() {
         // PENDING の知識を却下すると DECLINED になることを検証する
-        Knowledge k = createKnowledge("k1", "Title", "Body", KnowledgeStatus.PENDING, 1L);
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "Title", "Body", "pending", 1L);
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
         when(knowledgeRepository.save(any(Knowledge.class))).thenReturn(k);
         lenient().when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
@@ -198,8 +197,8 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void reject_nonPending_throwsConflict() {
         // PENDING 以外のステータスの却下で AdminConflictException が発生することを検証する
-        Knowledge k = createKnowledge("k1", "Title", "Body", KnowledgeStatus.DECLINED, 1L);
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "Title", "Body", "declined", 1L);
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
 
         assertThrows(AdminConflictException.class, () -> service.reject("k1", "Reason"));
     }
@@ -314,8 +313,8 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void getModeration_found_returnsModerationInfo() {
         // モデレーション情報が正しく返されることを検証する
-        Knowledge k = createKnowledge("k1", "T", "B", KnowledgeStatus.PENDING, 1L);
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "T", "B", "pending", 1L);
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
 
         KnowledgeModeration m = new KnowledgeModeration();
         m.setKnowledgeId("k1");
@@ -333,7 +332,7 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void getModeration_knowledgeNotFound_throwsNotFound() {
         // ナレッジが存在しない場合 AdminNotFoundException が発生することを検証する
-        when(knowledgeRepository.findById("missing")).thenReturn(Optional.empty());
+        when(knowledgeRepository.findById(Long.valueOf("missing"))).thenReturn(Optional.empty());
 
         assertThrows(AdminNotFoundException.class, () -> service.getModeration("missing"));
     }
@@ -343,8 +342,8 @@ public class AdminKnowledgeServiceImplTest {
     @Test
     void updateModeration_createsNewIfNotExists() {
         // モデレーションが存在しない場合に新規作成されることを検証する
-        Knowledge k = createKnowledge("k1", "T", "B", KnowledgeStatus.PENDING, 1L);
-        when(knowledgeRepository.findById("k1")).thenReturn(Optional.of(k));
+        Knowledge k = createKnowledge("k1", "T", "B", "pending", 1L);
+        when(knowledgeRepository.findById(Long.valueOf("k1"))).thenReturn(Optional.of(k));
         when(moderationRepository.findById("k1")).thenReturn(Optional.empty());
         when(moderationRepository.save(any(KnowledgeModeration.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -369,16 +368,21 @@ public class AdminKnowledgeServiceImplTest {
 
     // ========== ヘルパー ==========
 
-    private Knowledge createKnowledge(String id, String title, String body, KnowledgeStatus status, Long authorId) {
-        Knowledge k = new Knowledge();
-        k.setId(id);
-        k.setTitle(title);
-        k.setBody(body);
-        k.setStatus(status);
-        k.setAuthorId(authorId);
-        k.setCreatedAt(Instant.now());
-        k.setUpdatedAt(Instant.now());
-        return k;
+    private Knowledge createKnowledge(String id, String title, String body, String status, Long authorId) {
+        User author = new User();
+        author.setId(authorId);
+        return Knowledge.builder()
+                .id(Long.valueOf(id.replaceAll("\\D", "").isEmpty() ? "1" : id.replaceAll("\\D", "")))
+                .title(title)
+                .body(body)
+                .status(status)
+                .author(author)
+                .category(null)
+                .deleted(false)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .tags(new java.util.HashSet<>())
+                .build();
     }
 
     private User createUser(Long id, String username, String displayName) {

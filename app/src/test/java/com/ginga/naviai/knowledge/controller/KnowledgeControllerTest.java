@@ -1,6 +1,7 @@
 package com.ginga.naviai.knowledge.controller;
 
 import org.springframework.security.core.userdetails.User;
+import com.ginga.naviai.knowledge.dto.KnowledgeDetailResponse;
 import com.ginga.naviai.knowledge.dto.KnowledgeResponse;
 import com.ginga.naviai.knowledge.service.KnowledgeService;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.Arrays;
+import java.util.Optional;
 import org.mockito.Mockito;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -103,6 +105,50 @@ public class KnowledgeControllerTest {
     public void testGetKnowledge_badRequest() throws Exception {
         mockMvc.perform(get("/api/v1/knowledge"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/v1/knowledge/{id} — 記事詳細取得
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    public void testGetKnowledgeDetail_found() throws Exception {
+        KnowledgeDetailResponse detail = KnowledgeDetailResponse.builder()
+                .id("1")
+                .title("テスト記事")
+                .status("published")
+                .isDeleted(false)
+                .attachments(Collections.emptyList())
+                .tags(Collections.emptyList())
+                .likesCount(3L)
+                .likedByCurrentUser(false)
+                .comments(Collections.emptyList())
+                .revisions(Collections.emptyList())
+                .build();
+        when(knowledgeService.getKnowledgeDetail(eq(1L), any())).thenReturn(Optional.of(detail));
+
+        mockMvc.perform(get("/api/v1/knowledge/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value("1"))
+                .andExpect(jsonPath("$.data.title").value("テスト記事"))
+                .andExpect(jsonPath("$.data.status").value("published"))
+                .andExpect(jsonPath("$.data.likes_count").value(3));
+    }
+
+    @Test
+    @WithMockUser
+    public void testGetKnowledgeDetail_notFound() throws Exception {
+        when(knowledgeService.getKnowledgeDetail(eq(999L), any())).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/knowledge/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testGetKnowledgeDetail_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/knowledge/1"))
+                .andExpect(status().isUnauthorized());
     }
 
 }

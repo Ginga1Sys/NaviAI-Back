@@ -3,6 +3,7 @@ package com.ginga.naviai.knowledge.repository;
 import com.ginga.naviai.knowledge.entity.Knowledge;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,9 +11,17 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
+
+    /**
+     * IDで記事を取得（論理削除済みを除外）。
+     * author と tags を JOIN FETCH してN+1クエリを回避する。
+     */
+    @EntityGraph(attributePaths = {"author", "tags"})
+    Optional<Knowledge> findByIdAndDeletedFalse(Long id);
 
     long countByDeletedFalse();
 
@@ -56,5 +65,20 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
     Page<Knowledge> findByAuthorId(Long authorId, Pageable pageable);
 
     Page<Knowledge> findByAuthorUsername(String username, Pageable pageable);
+
+    /**
+     * 指定記事のいいね数を取得する。
+     * "like" はSQL予約語のため引用符でエスケープする。
+     */
+    @Query(value = "SELECT COUNT(*) FROM \"like\" WHERE knowledge_id = :knowledgeId", nativeQuery = true)
+    long countLikesByKnowledgeId(@Param("knowledgeId") Long knowledgeId);
+
+    /**
+     * 指定ユーザーが指定記事にいいねしているかを判定する。
+     * 1件以上存在すれば1、存在しなければ0を返す。
+     */
+    @Query(value = "SELECT COUNT(*) FROM \"like\" WHERE knowledge_id = :knowledgeId AND user_id = :userId",
+           nativeQuery = true)
+    long countLikeByUserAndKnowledge(@Param("knowledgeId") Long knowledgeId, @Param("userId") Long userId);
 }
 

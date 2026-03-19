@@ -34,6 +34,9 @@ public class User {
     @Column(name = "display_name", length = 100)
     private String displayName;
 
+    @Column(nullable = false, length = 50)
+    private String role = "user";
+
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -65,6 +68,8 @@ public class User {
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public Instant getCreatedAt() { return createdAt; }

@@ -4,4 +4,6 @@ import com.ginga.naviai.auth.dto.UserResponse;
 
 public interface UserService {
     UserResponse getCurrentUser(Long userId);
+
+    boolean isAdmin(Long userId);
 }

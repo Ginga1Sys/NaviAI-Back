@@ -5,15 +5,15 @@ CREATE TABLE IF NOT EXISTS knowledge (
    body TEXT,
    status VARCHAR(20) NOT NULL DEFAULT 'draft',
    is_deleted BOOLEAN NOT NULL DEFAULT false,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-   published_at TIMESTAMPTZ
+   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+   published_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE IF NOT EXISTS tag (
    id BIGSERIAL PRIMARY KEY,
    name VARCHAR(100) NOT NULL UNIQUE,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS knowledge_tag (
@@ -29,14 +29,14 @@ CREATE TABLE IF NOT EXISTS comment (
    body TEXT NOT NULL,
    parent_comment_id BIGINT REFERENCES comment(id) ON DELETE SET NULL,
    is_deleted BOOLEAN NOT NULL DEFAULT false,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS "like" (
    id BIGSERIAL PRIMARY KEY,
    knowledge_id BIGINT NOT NULL REFERENCES knowledge(id) ON DELETE CASCADE,
    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
    UNIQUE (knowledge_id, user_id)
 );
 

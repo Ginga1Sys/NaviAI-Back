@@ -54,6 +54,9 @@ public class Knowledge {
     @Column(length = 255)
     private String thumbnail;
 
+    @Column(nullable = false, length = 32)
+    private String visibility = "private";
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "knowledge_tag",

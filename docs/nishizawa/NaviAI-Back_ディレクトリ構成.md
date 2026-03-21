@@ -61,12 +61,12 @@
               - KnowledgeService.java: 記事検索サービスのインターフェース。
               - KnowledgeServiceImpl.java: NamedParameterJdbcTemplate を用いて動的 SQL を構築し、全文検索・タグフィルタ・filter/sort 指定・ページングを実装。filter=recommended ではいいね数降順、filter=latest では作成日時降順（最大20件）で返す。
               - PublicKnowledgeService.java: 公開記事取得サービスのインターフェース（`getPublicKnowledge`, `getRecommendedKnowledge`）。
-              - PublicKnowledgeServiceImpl.java: `KnowledgeRepository.findPublicKnowledge` を呼び出し、公開記事を `PublicKnowledgeItemDto` に変換して返す。`findTopRecommendedArticlesAll` を利用して非公開記事から「今週の注目」向けおすすめ記事を返す実装。
+              - PublicKnowledgeServiceImpl.java: `KnowledgeRepository.findPublicKnowledge` を呼び出し、公開記事を `PublicKnowledgeItemDto` に変換して返す。`findTopPrivateKnowledgeByLikesDesc` を利用して非公開記事から「今週の注目」向けおすすめ記事を返す実装。
             - entity
               - Knowledge.java: 記事/ナレッジ情報のエンティティ。タイトル、内容、ステータス、作成者、タグを管理。`visibility` フィールド（VARCHAR(32)、デフォルト `'private'`）を含む。
               - Tag.java: タグ情報のエンティティ。
             - repository
-              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）、公開記事取得用の `findPublicKnowledge`（visibility=public かつ status=published かつ未削除）、おすすめ取得用の `findTopRecommendedArticlesAll`（非公開記事をいいね数降順）を含む。
+              - KnowledgeRepository.java: 記事情報の JpaRepository。サマリー取得用の集計クエリ（総数、週間投稿数、ステータス別、人気タグ集計）と、週次アクティビティ集計用の `findCreatedAtInRange`（N+1回避のため期間内作成日時を一括取得）、公開記事取得用の `findPublicKnowledge`（visibility=public かつ status=published かつ未削除）、おすすめ取得用の `findTopPrivateKnowledgeByLikesDesc`（非公開記事をいいね数降順）を含む。
           - tags
             - controller
               - TagController.java: タグ一覧取得 API。`GET /api/v1/tags`（認証必須）でタグ名と利用件数の配列を返す。`GET /api/v1/public/tags`（認証不要）で公開記事に紐づくタグのみ返す。

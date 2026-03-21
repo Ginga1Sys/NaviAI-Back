@@ -74,4 +74,23 @@ class TagControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError());
     }
+
+    /**
+     * 公開タグ一覧 API が未認証でも 200 で配列を返すことを確認する。
+     */
+    @Test
+    void getPublicTags_withoutAuthentication_returns200WithTagList() throws Exception {
+        when(tagService.getPublicTags()).thenReturn(List.of(
+                TagResponse.builder().name("ChatGPT").count(5L).build(),
+                TagResponse.builder().name("業務効率化").count(3L).build()
+        ));
+
+        mockMvc.perform(get("/api/v1/public/tags")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("ChatGPT"))
+                .andExpect(jsonPath("$[0].count").value(5))
+                .andExpect(jsonPath("$[1].name").value("業務効率化"))
+                .andExpect(jsonPath("$[1].count").value(3));
+    }
 }

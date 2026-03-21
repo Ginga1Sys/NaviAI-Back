@@ -26,7 +26,7 @@ class PublicKnowledgeServiceTest {
 
     @Test
     void getRecommendedKnowledge_returnsMappedItems() {
-        when(knowledgeRepository.findTopRecommendedArticlesAll(eq(1)))
+        when(knowledgeRepository.findTopPrivateKnowledgeByLikesDesc(eq(1)))
                 .thenReturn(List.<Object[]>of(new Object[]{101L, "おすすめ記事A", 7L}));
 
         PublicRecommendedKnowledgeResponse response = publicKnowledgeService.getRecommendedKnowledge(1);
@@ -35,16 +35,16 @@ class PublicKnowledgeServiceTest {
         assertEquals(101L, response.getItems().get(0).getId());
         assertEquals("おすすめ記事A", response.getItems().get(0).getTitle());
         assertEquals(7L, response.getItems().get(0).getLikeCount());
-        verify(knowledgeRepository).findTopRecommendedArticlesAll(eq(1));
+        verify(knowledgeRepository).findTopPrivateKnowledgeByLikesDesc(eq(1));
     }
 
     @Test
     void getRecommendedKnowledge_capsLimitToRange() {
-        when(knowledgeRepository.findTopRecommendedArticlesAll(eq(10)))
+        when(knowledgeRepository.findTopPrivateKnowledgeByLikesDesc(eq(10)))
             .thenReturn(List.<Object[]>of());
 
         publicKnowledgeService.getRecommendedKnowledge(99);
 
-        verify(knowledgeRepository).findTopRecommendedArticlesAll(eq(10));
+        verify(knowledgeRepository).findTopPrivateKnowledgeByLikesDesc(eq(10));
     }
 }

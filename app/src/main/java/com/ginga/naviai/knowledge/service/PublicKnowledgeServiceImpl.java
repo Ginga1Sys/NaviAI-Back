@@ -42,7 +42,7 @@ public class PublicKnowledgeServiceImpl implements PublicKnowledgeService {
     @Transactional(readOnly = true)
     public PublicRecommendedKnowledgeResponse getRecommendedKnowledge(int limit) {
         int cappedLimit = Math.max(1, Math.min(limit, 10));
-        List<Object[]> rows = knowledgeRepository.findTopRecommendedArticlesAll(cappedLimit);
+        List<Object[]> rows = knowledgeRepository.findTopPrivateKnowledgeByLikesDesc(cappedLimit);
 
         List<PublicRecommendedKnowledgeItemDto> items = rows.stream()
                 .map(this::toRecommendedDto)
@@ -74,15 +74,15 @@ public class PublicKnowledgeServiceImpl implements PublicKnowledgeService {
                 .build();
     }
 
-        private PublicRecommendedKnowledgeItemDto toRecommendedDto(Object[] row) {
-                Long id = ((Number) row[0]).longValue();
-                String title = String.valueOf(row[1]);
-                long likeCount = row[2] == null ? 0L : ((Number) row[2]).longValue();
+    private PublicRecommendedKnowledgeItemDto toRecommendedDto(Object[] row) {
+        Long id = ((Number) row[0]).longValue();
+        String title = String.valueOf(row[1]);
+        long likeCount = row[2] == null ? 0L : ((Number) row[2]).longValue();
 
-                return PublicRecommendedKnowledgeItemDto.builder()
-                                .id(id)
-                                .title(title)
-                                .likeCount(likeCount)
-                                .build();
-        }
+        return PublicRecommendedKnowledgeItemDto.builder()
+                        .id(id)
+                        .title(title)
+                        .likeCount(likeCount)
+                        .build();
+    }
 }

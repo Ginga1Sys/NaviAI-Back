@@ -52,7 +52,7 @@ public interface KnowledgeRepository extends JpaRepository<Knowledge, Long> {
                    "GROUP BY k.id, k.title " +
                    "ORDER BY like_count DESC, k.created_at DESC " +
                    "LIMIT :limit", nativeQuery = true)
-    List<Object[]> findTopRecommendedArticlesAll(@Param("limit") int limit);
+    List<Object[]> findTopPrivateKnowledgeByLikesDesc(@Param("limit") int limit);
 
     long countByCreatedAtBetweenAndDeletedFalse(Instant start, Instant end);
 

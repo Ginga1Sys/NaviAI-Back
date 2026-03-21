@@ -3,10 +3,12 @@ package com.ginga.naviai.knowledge.controller;
 import com.ginga.naviai.knowledge.dto.PublicKnowledgePageResponse;
 import com.ginga.naviai.knowledge.dto.PublicRecommendedKnowledgeResponse;
 import com.ginga.naviai.knowledge.service.PublicKnowledgeService;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/public/knowledge")
 @RequiredArgsConstructor
+@Validated
 public class PublicKnowledgeController {
 
     private final PublicKnowledgeService publicKnowledgeService;
@@ -32,8 +35,8 @@ public class PublicKnowledgeController {
      */
     @GetMapping
     public ResponseEntity<PublicKnowledgePageResponse> getPublicKnowledge(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) int size) {
 
         Pageable pageable = PageRequest.of(page, Math.min(size, 50));
         return ResponseEntity.ok(publicKnowledgeService.getPublicKnowledge(pageable));

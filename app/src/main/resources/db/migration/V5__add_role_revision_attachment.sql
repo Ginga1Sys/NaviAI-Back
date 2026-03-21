@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS knowledge_revision (
     title VARCHAR(500),
     body TEXT,
     diff_summary TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 -- attachment テーブルを追加（添付ファイル）
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS attachment (
     content_type VARCHAR(100),
     size_bytes BIGINT,
     storage_path TEXT NOT NULL,
-    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    uploaded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_revision_knowledge ON knowledge_revision (knowledge_id, created_at);
